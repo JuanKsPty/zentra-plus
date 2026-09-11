@@ -42,6 +42,22 @@ export interface Pagina<T> {
   hasMore: boolean;
 }
 
+export interface UsuarioDto {
+  id: string;
+  name: string;
+  email: string | null;
+  is_active: boolean;
+  role_id?: string | null;
+  role_name?: string | null;
+}
+
+/** Lo minimo para pintar la rejilla del teclado de PIN. Publico, sin correo. */
+export interface UsuarioOperativoDto {
+  id: string;
+  name: string;
+  role_name: string | null;
+}
+
 export interface SaludDto {
   status: string;
   app: string;

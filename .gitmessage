@@ -1,0 +1,21 @@
+
+
+# ── Formato: <tipo>(<alcance>): <resumen en imperativo, en minuscula>
+#
+#    tipos:    feat | fix | docs | style | refactor | test | chore | ci
+#    alcance:  el modulo afectado — auth, catalog, floor, orders, cash,
+#              stock, reports, realtime, web, api, ci, repo
+#
+# ── El resumen dice el SINTOMA o la DECISION, no el diff:
+#
+#      bien:  fix(cash): un doble clic abria dos turnos y el arqueo no cuadraba
+#      mal:   fix(cash): cambiar openShift
+#
+# ── El cuerpo explica por que existia el problema, por que la solucion es esa
+#    y que se comprobo. Si el commit no necesita cuerpo, probablemente el
+#    resumen tampoco sea el correcto.
+#
+# ── Si el cambio se hizo con asistencia de IA, deja el trailer al final para
+#    que el historial lo refleje:
+#
+#    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

@@ -10,6 +10,38 @@
  * compilacion aqui en vez de un undefined en pantalla.
  */
 
+/** El sobre de error de la API. Toda respuesta que no sea 2xx llega asi. */
+export interface ErrorDto {
+  error: {
+    code: string;
+    message: string;
+    details: { field: string | null; message: string }[];
+    request_id: string | null;
+  };
+}
+
+/**
+ * La forma de todo listado. Una sola convencion en toda la API.
+ *
+ * `total` no es decoracion: es lo que permite que una pantalla diga «mostrando
+ * 50 de 312» en vez de cortar en silencio, que se lee como «esto es todo».
+ */
+export interface PaginaDto<T> {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface Pagina<T> {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export interface SaludDto {
   status: string;
   app: string;

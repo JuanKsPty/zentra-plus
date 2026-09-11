@@ -1,0 +1,179 @@
+# Integracion continua de Zentra+.
+#
+# Tres trabajos. Los dos primeros comprueban el codigo; el tercero comprueba la
+# IMAGEN EN MARCHA, que es lo unico que puede verificar las cosas que no existen
+# hasta que algo arranca: que los manejadores de error estan registrados, que la
+# documentacion se sirve y que el frontend encuentra sus propios assets.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un push nuevo mata la ejecucion vieja: nadie mira el resultado de un commit
+# que ya fue reemplazado, y las colas de runners no son infinitas.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API — linter, formato y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          # Version exacta: setup-uv no publica un tag flotante de major, asi que
+          # un @v7 a secas no resuelve y el trabajo falla antes de arrancar.
+          version: '0.11.29'
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+
+      - run: uv sync --directory api --locked
+
+      - name: Linter
+        run: uv run --directory api ruff check .
+
+      - name: Formato
+        run: uv run --directory api ruff format --check .
+
+      - name: Pruebas
+        # Sobre SQLite en memoria: la suite no depende de Docker ni de una base
+        # levantada. Lo que SQLite no puede probar va marcado como `pg`.
+        run: uv run --directory api pytest -m "not pg"
+
+  verify:
+    name: Web — linter, tipos, pruebas y build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Linter
+        run: pnpm run lint:web
+
+      - name: Tipos
+        run: pnpm run typecheck
+
+      - name: Build
+        # Compilar no necesita secretos, y eso es parte del diseno: lo unico que
+        # se hornea en el bundle es la URL publica de la API.
+        run: pnpm run build
+
+  imagenes:
+    name: Imagenes — que arranquen, no que compilen
+    runs-on: ubuntu-latest
+    needs: [api, verify]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Construir la imagen de la API
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          target: prod
+          tags: zentra-api:ci
+          load: true
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Construir la imagen del web
+        uses: docker/build-push-action@v6
+        with:
+          # El contexto es la RAIZ: el lockfile y el workspace viven alli.
+          context: .
+          file: web/Dockerfile
+          target: prod
+          tags: zentra-web:ci
+          load: true
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+      - name: Arrancar la API
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -e APP_ENV=production \
+            -e JWT_SECRET="$(openssl rand -hex 32)" \
+            -e JWT_REFRESH_SECRET="$(openssl rand -hex 32)" \
+            zentra-api:ci
+          for intento in $(seq 1 30); do
+            curl -fsS http://localhost:8000/api/health >/dev/null && break
+            sleep 1
+          done
+
+      - name: La API responde y dice quien es
+        run: |
+          curl -fsS http://localhost:8000/api/health | tee /tmp/health.json
+          test "$(jq -r .status /tmp/health.json)" = "ok"
+          test "$(jq -r .environment /tmp/health.json)" = "production"
+
+      - name: La documentacion se sirve
+        run: |
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/docs)" = "200"
+
+      - name: Un error sale con el sobre de la casa
+        # Esto no se puede comprobar compilando: depende de que los manejadores
+        # esten registrados en la aplicacion que de verdad arranco.
+        run: |
+          curl -s http://localhost:8000/api/no-existe > /tmp/error.json
+          cat /tmp/error.json
+          test "$(jq -r .error.code /tmp/error.json)" = "no_encontrado"
+          jq -e 'has("error") and (.error | has("request_id"))' /tmp/error.json
+
+      - name: La API arranco sin secretos propios habria fallado
+        # El caso negativo: fuera de desarrollo, sin secretos, no debe levantar.
+        # Si algun dia alguien pone un valor por defecto "para que sea comodo",
+        # este paso se pone rojo.
+        run: |
+          if docker run --rm -e APP_ENV=production zentra-api:ci \
+               python -c "import app.main" 2>/dev/null; then
+            echo "La API arranco en produccion SIN secretos. Eso no puede pasar."
+            exit 1
+          fi
+          echo "Correcto: se niega a arrancar sin secretos."
+
+      - name: Arrancar el web
+        run: |
+          docker run -d --name web -p 3000:3000 \
+            --add-host host.docker.internal:host-gateway \
+            -e API_INTERNAL_URL=http://host.docker.internal:8000 \
+            zentra-web:ci
+          for intento in $(seq 1 30); do
+            curl -fsS http://localhost:3000/ >/dev/null && break
+            sleep 1
+          done
+
+      - name: El web sirve la pagina y encuentra sus assets
+        # `.next/static` NO esta dentro de la salida standalone y se copia en un
+        # paso aparte del Dockerfile. Si ese COPY desapareciera, la pagina
+        # cargaria igual pero SIN ESTILOS, y solo pedir un asset lo detecta.
+        run: |
+          curl -fsS http://localhost:3000/ > /tmp/pagina.html
+          grep -q "Zentra" /tmp/pagina.html
+          css=$(grep -o '/_next/static/[^"]*\.css' /tmp/pagina.html | head -1)
+          test -n "$css" || { echo "La pagina no referencia ninguna hoja de estilos"; exit 1; }
+          test "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000$css")" = "200"
+
+      - name: El proxy de /api atraviesa hasta la API
+        # El origen unico solo existe si el route handler resuelve el destino en
+        # tiempo de ejecucion. Con un rewrite horneado al compilar, esto daria 500.
+        run: |
+          curl -fsS http://localhost:3000/api/health | jq -e '.status == "ok"'
+
+      - name: Registros
+        if: always()
+        run: |
+          echo "--- api ---"; docker logs api 2>&1 | tail -40
+          echo "--- web ---"; docker logs web 2>&1 | tail -40

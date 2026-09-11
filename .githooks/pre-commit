@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Se activa una sola vez por clon:
+#
+#     git config core.hooksPath .githooks
+#
+# No se instala solo a proposito: un repositorio que ejecuta codigo en tu
+# maquina nada mas clonarlo es exactamente lo que no queremos normalizar.
+set -euo pipefail
+
+exec bash "$(dirname "$0")/../scripts/check-secrets.sh" --staged

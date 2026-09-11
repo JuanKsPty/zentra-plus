@@ -1,11 +1,11 @@
 import logging
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.exception_handlers import registrar_manejadores
 
 # Se configura AL IMPORTAR, antes de instanciar la app: si estuviera dentro del
 # arranque, un fallo de configuracion saldria con el formato por defecto de
@@ -33,21 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.exception_handler(Exception)
-async def error_no_previsto(request: Request, exc: Exception) -> JSONResponse:
-    """
-    Cualquier excepcion sin manejar sale como JSON, no como HTML de error.
-
-    El mensaje de la excepcion NO viaja al cliente: `str()` de un error de
-    SQLAlchemy incluye los parametros enlazados de la consulta, y eso puede
-    llevar un hash de credencial. Al log va la traza; al cliente, una frase.
-    """
-    logger.exception("Error no manejado en %s %s", request.method, request.url.path)
-    return JSONResponse(
-        status_code=500,
-        content={"error": {"code": "error_interno", "message": "Error interno del servidor."}},
-    )
-
+# Todo error sale con la misma forma, venga de donde venga. Ver core/errors.py.
+registrar_manejadores(app)
 
 app.include_router(api_router, prefix="/api")

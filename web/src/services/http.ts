@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '@/lib/env';
-import type { ErrorDto } from '@/types/api';
+import type { ErrorDto, Pagina, PaginaDto } from '@/types/api';
 
 /** El servidor contesto, y contesto que no. */
 export class ApiError extends Error {
@@ -100,4 +100,19 @@ async function errorDeRespuesta(respuesta: Response): Promise<ApiError> {
   }
 
   return new ApiError(respuesta.status, error.message, error.code, fieldErrors, error.request_id);
+}
+
+/**
+ * Convierte una pagina de la API al dominio, aplicando el mapeador a cada
+ * elemento. Sin esto, cada servicio repetiria las cinco lineas de la envoltura
+ * y alguno acabaria olvidandose de `hasMore`.
+ */
+export function aPagina<D, T>(dto: PaginaDto<D>, aDominio: (d: D) => T): Pagina<T> {
+  return {
+    items: dto.items.map(aDominio),
+    page: dto.page,
+    size: dto.size,
+    total: dto.total,
+    hasMore: dto.has_more,
+  };
 }

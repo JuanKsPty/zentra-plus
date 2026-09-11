@@ -34,16 +34,27 @@ la tiene, porque el identificador lo acuña el dispositivo.
 
 > El sistema sabe quién eres, de qué sucursal y qué puedes tocar.
 
-- [ ] Negocio y sucursales, con `branch_id` en todo el esquema operativo
-- [ ] Sesión por correo y sesión por PIN, con refresco y rotación
-- [ ] RBAC que niega por defecto, con el permiso declarado en cada ruta
-- [ ] Alcance por sucursal imposible de olvidar
-- [ ] Configuración del negocio
-- [ ] Cáscara del web: tema, tipografía y navegación filtrada por permisos
-- [ ] Dos puertas de entrada: correo para el panel, PIN para el piso
+- [x] Sucursales, con el contador de número de cuenta por sede
+- [x] Sesión por correo y sesión por PIN, con refresco y rotación
+- [x] RBAC que niega por defecto, con el permiso declarado en cada ruta
+- [x] Alcance por sucursal imposible de olvidar
+- [x] Configuración del negocio
+- [x] Cáscara del web: tema, tipografía y navegación filtrada por permisos
+- [x] Dos puertas de entrada: correo para el panel, PIN para el piso
 
 **Se demuestra:** entrar por correo con el dueño, entrar por PIN con un mesero, y comprobar
 que una ruta sin permiso devuelve 403 y que la interfaz ni siquiera la ofrece.
+
+*Cambió sobre el plan:* estaba previsto un commit de arreglo para la colisión de dos inicios
+de sesión en el mismo segundo. No hizo falta: el `jti` es la clave primaria de la tabla de
+refrescos, así que la colisión es imposible por estructura y no algo que haya que evitar. El
+arreglo que sí apareció fue otro — al caducar el token, ninguna petición del cliente se
+renovaba.
+
+*También:* ni la navegación ni el aterrizaje por rol listan rutas sin pantalla. Las dos listas
+lo intentaron y sus pruebas se pusieron rojas; tenían razón, así que cada destino entra en el
+mismo commit que su pantalla. El orden previsto completo del aterrizaje se conserva aparte,
+con su prueba, porque el razonamiento del orden es lo que se pierde primero.
 
 ## Fase 2 — Catálogo y salón
 

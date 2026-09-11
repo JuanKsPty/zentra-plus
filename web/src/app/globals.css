@@ -1,56 +1,187 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
 /*
- * Tokens de Zentra+.
+ * ---------------------------------------------------------------------------
+ *  Sistema de diseno de Zentra+ — «papel y tinta de instrumento»
+ * ---------------------------------------------------------------------------
  *
- * Papel calido en claro, grafito frio en oscuro, un unico acento petroleo.
- * La paleta completa y el sistema de densidad llegan con el cascaron de la
- * aplicacion; aqui estan los que la primera pantalla necesita.
+ *  CLARO = PAPEL CALIDO. El lienzo no es blanco, es hueso con un punto de
+ *  cromaticidad calida; las tarjetas si son blanco puro, asi que FLOTAN sin
+ *  necesitar sombra. El panel se lee de dia y el blanco puro a pantalla
+ *  completa cansa.
  *
- * REGLA: nunca colores crudos de Tailwind (bg-white, text-blue-600). Siempre
- * estos tokens. Es lo que hace que el modo oscuro no tenga CSS por pantalla.
+ *  OSCURO = GRAFITO FRIO. El tablero de cocina vive de noche en una pantalla de
+ *  pared. Sobre un fondo neutro-frio, los chips de estado saltan mas que sobre
+ *  un gris calido.
+ *
+ *  UN SOLO AZUL. El acento es un petroleo profundo, y `--info` vale EXACTAMENTE
+ *  lo mismo que `--primary`: dos azules indistinguibles no son un sistema, son
+ *  un bug. Lo que separa accion de estado no es el tono, es el relleno:
+ *
+ *      relleno solido = accion       (bg-primary text-primary-foreground)
+ *      relleno tenue  = estado       (bg-<token>/12 text-<token> border-<token>/25)
+ *
+ *  Verde, ambar y rojo quedan RESERVADOS al dominio, y el acento no invade esas
+ *  bandas de tono: asi un vistazo de dos segundos al tablero no interpreta nada.
+ *
+ *  REGLA: nunca colores crudos de Tailwind (`bg-white`, `text-blue-600`).
+ *  Siempre estos tokens. Lo vigila `src/components/tokens.spec.ts`.
  */
+
+@custom-variant dark (&:is(.dark *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-success: var(--success);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
   --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
   --font-mono: var(--font-mono);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-4xl: calc(var(--radius) * 3);
 }
 
 :root {
-  --background: oklch(0.985 0.004 95); /* papel, no blanco */
-  --foreground: oklch(0.22 0.014 240); /* tinta grafito */
-  --card: oklch(1 0 0); /* blanco: la tarjeta flota sobre el papel */
-  --muted-foreground: oklch(0.505 0.016 245);
-  --border: oklch(0.9 0.008 95);
-  --primary: oklch(0.525 0.108 216); /* petroleo Zentra */
+  --background: oklch(0.985 0.004 95);
+  --foreground: oklch(0.22 0.014 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.014 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.014 240);
+
+  --primary: oklch(0.525 0.108 216);
   --primary-foreground: oklch(0.985 0.004 95);
+  --secondary: oklch(0.955 0.008 95);
+  --secondary-foreground: oklch(0.28 0.014 240);
+  --muted: oklch(0.958 0.007 95);
+  --muted-foreground: oklch(0.505 0.016 245);
+  --accent: oklch(0.945 0.018 216);
+  --accent-foreground: oklch(0.3 0.06 216);
+
+  /* Estados del dominio. Cada uno con su color de texto encima. */
   --success: oklch(0.585 0.132 152);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.735 0.152 68);
+  --warning-foreground: oklch(0.24 0.03 68);
+  --info: oklch(0.525 0.108 216);
+  --info-foreground: oklch(0.985 0.004 95);
   --destructive: oklch(0.545 0.205 27);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(0.9 0.008 95);
+  --input: oklch(0.9 0.008 95);
+  --ring: oklch(0.525 0.108 216);
+
+  /* Mas recto que lo habitual: la geometria del salon y del tablero de cocina
+     es una rejilla de rectangulos, y un radio grande la ablanda. */
+  --radius: 0.5rem;
+  --card-spacing: 1.25rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.165 0.012 250); /* grafito frio: es el fondo del KDS */
-    --foreground: oklch(0.965 0.004 95);
-    --card: oklch(0.215 0.014 250);
-    --muted-foreground: oklch(0.72 0.012 250);
-    --border: oklch(1 0 0 / 10%);
-    --primary: oklch(0.72 0.115 214); /* sube la luminosidad: el petroleo oscuro no contrasta */
-    --primary-foreground: oklch(0.17 0.02 240);
-    --success: oklch(0.72 0.15 152);
-    --destructive: oklch(0.68 0.19 25);
+.dark {
+  --background: oklch(0.165 0.012 250);
+  --foreground: oklch(0.965 0.004 95);
+  --card: oklch(0.215 0.014 250);
+  --card-foreground: oklch(0.965 0.004 95);
+  --popover: oklch(0.235 0.014 250);
+  --popover-foreground: oklch(0.965 0.004 95);
+
+  /* Sube la luminosidad: el petroleo oscuro no contrasta sobre grafito. */
+  --primary: oklch(0.72 0.115 214);
+  --primary-foreground: oklch(0.17 0.02 240);
+  --secondary: oklch(0.265 0.012 250);
+  --secondary-foreground: oklch(0.965 0.004 95);
+  --muted: oklch(0.265 0.012 250);
+  --muted-foreground: oklch(0.72 0.012 250);
+  --accent: oklch(0.29 0.028 216);
+  --accent-foreground: oklch(0.93 0.02 216);
+
+  --success: oklch(0.72 0.15 152);
+  --success-foreground: oklch(0.17 0.02 152);
+  --warning: oklch(0.8 0.145 72);
+  --warning-foreground: oklch(0.19 0.03 72);
+  --info: oklch(0.72 0.115 214);
+  --info-foreground: oklch(0.17 0.02 240);
+  --destructive: oklch(0.68 0.19 25);
+  --destructive-foreground: oklch(0.165 0.02 25);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.72 0.115 214);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+/* ---------------------------------------------------------------------------
+ *  Impresion termica de 80 mm (el recibo).
+ *
+ *  Se fuerza el tema claro: con el oscuro y «imprimir fondos» desactivado
+ *  —que es el valor por defecto— saldria blanco sobre blanco.
+ * ------------------------------------------------------------------------ */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+
+  html,
+  body {
+    width: 80mm;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .no-imprimir {
+    display: none !important;
+  }
+
+  .recibo * {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    color: #000 !important;
+  }
+
+  /* En termica, un borde discontinuo es lo unico que separa bloques. */
+  .recibo hr,
+  .recibo .separador {
+    border-color: #000 !important;
+  }
 }

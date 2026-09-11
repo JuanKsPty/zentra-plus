@@ -27,20 +27,46 @@ if config.config_file_name is not None:
 target_metadata = SQLModel.metadata
 
 
+# Indices que existen en la base pero NO en los modelos, porque SQLAlchemy no
+# sabe expresarlos: los que van sobre una expresion en vez de sobre columnas.
+#
+# Van aqui con nombre y uno a uno. Sin esta lista, `autogenerate` los ve en la
+# base, no los encuentra en el metadata y propone BORRARLOS — y una revision que
+# elimina en silencio la garantia de fila unica de la configuracion es
+# exactamente el tipo de cambio que nadie revisa dos veces.
+INDICES_ESCRITOS_A_MANO = {
+    "uq_business_config_fila_unica",
+}
+
+
 def incluir_objeto(objeto, nombre, tipo, reflejado, comparar_con) -> bool:
     """
-    Los indices PARCIALES se mantienen a mano y quedan fuera del autogenerate.
+    Que queda fuera del autogenerate.
 
-    Alembic no compara `postgresql_where` contra lo reflejado de forma fiable:
-    el resultado es un DROP/CREATE espurio en cada revision o, peor, que no lo
-    vea y proponga un duplicado con otro nombre. Se declaran en el modelo (para
-    que las tablas de desarrollo y las de los tests los tengan) y se escriben a
-    mano en la migracion, con el mismo nombre.
+    Dos clases de indice, y las dos por el mismo motivo de fondo: Alembic no
+    puede compararlos de forma fiable con lo que hay en la base.
+
+    1. Los que van sobre una EXPRESION (`((true))`). No existen en el metadata,
+       asi que los propondria para borrar.
+    2. Los PARCIALES (`WHERE ...`). Alembic no compara `postgresql_where` contra
+       lo reflejado, asi que saldria un DROP/CREATE espurio en cada revision o,
+       peor, no los veria y propondria un duplicado con otro nombre.
+
+    Los parciales SI se declaran en el modelo —para que las tablas de desarrollo
+    y las de los tests los tengan— y ademas se escriben a mano en la migracion,
+    con el mismo nombre.
     """
-    if tipo == "index" and getattr(objeto, "dialect_options", None):
+    if tipo != "index":
+        return True
+
+    if nombre in INDICES_ESCRITOS_A_MANO:
+        return False
+
+    if getattr(objeto, "dialect_options", None):
         parcial = objeto.dialect_options.get("postgresql", {}).get("where")
         if parcial is not None:
             return False
+
     return True
 
 

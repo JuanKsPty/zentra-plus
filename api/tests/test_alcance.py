@@ -1,10 +1,10 @@
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytest
 from sqlmodel import Field, Session, SQLModel, select
 
 from app.core.errors import ErrorAplicacion
-from app.db.scoping import Alcance, consulta, fijar_sucursal
+from app.db.scoping import Alcance, consulta, crear_en_sucursal
 from app.models.base import ConSucursal
 
 SEDE_A = UUID("11111111-1111-4111-8111-111111111111")
@@ -80,7 +80,7 @@ def test_un_consolidado_sin_sucursales_no_devuelve_todo(con_datos: Session) -> N
 
 
 def test_la_sucursal_de_lo_que_se_guarda_sale_del_alcance() -> None:
-    comanda = fijar_sucursal(Comanda(branch_id=uuid4(), etiqueta="x"), Alcance.de(SEDE_B))
+    comanda = crear_en_sucursal(Comanda, {"etiqueta": "x"}, Alcance.de(SEDE_B))
 
     assert comanda.branch_id == SEDE_B
 
@@ -88,9 +88,8 @@ def test_la_sucursal_de_lo_que_se_guarda_sale_del_alcance() -> None:
 def test_no_se_puede_guardar_en_el_consolidado() -> None:
     """No existe «crear una comanda en todas las sucursales»."""
     with pytest.raises(ErrorAplicacion) as excinfo:
-        fijar_sucursal(
-            Comanda(branch_id=SEDE_A, etiqueta="x"),
-            Alcance(branch_id=None, branch_ids=(SEDE_A, SEDE_B)),
+        crear_en_sucursal(
+            Comanda, {"etiqueta": "x"}, Alcance(branch_id=None, branch_ids=(SEDE_A, SEDE_B))
         )
 
     assert excinfo.value.status_code == 400

@@ -15,6 +15,7 @@ import argparse
 import logging
 import secrets
 import sys
+from decimal import Decimal
 
 from sqlmodel import Session, select
 
@@ -26,9 +27,13 @@ from app.models import (
     Branch,
     BranchCounter,
     BusinessConfig,
+    Category,
     Permission,
+    Product,
+    RestaurantTable,
     Role,
     RolePermission,
+    Sector,
     User,
     UserBranch,
 )
@@ -226,6 +231,93 @@ def asegurar_asignacion(session: Session, usuario: User, sucursal: Branch) -> No
         session.commit()
 
 
+CARTA_DEMO: dict[str, list[tuple[str, str, str]]] = {
+    "Entradas": [
+        ("Empanada de carne", "2.50", "kitchen"),
+        ("Patacones", "3.75", "kitchen"),
+    ],
+    "Platos fuertes": [
+        ("Arroz con pollo", "8.50", "kitchen"),
+        ("Corvina a la plancha", "12.00", "kitchen"),
+    ],
+    "Bebidas": [
+        ("Cerveza nacional", "2.00", "bar"),
+        ("Chicha de maracuya", "2.25", "bar"),
+        ("Agua", "1.00", "immediate"),
+    ],
+}
+
+
+def sembrar_demo(session: Session) -> None:
+    """
+    Carta y salon de demostracion. Solo con `--demo` o en desarrollo.
+
+    Idempotente por clave natural —el nombre— y no por «¿hay filas?»: con ese
+    atajo, sembrar despues de borrar un producto a mano no lo restaura, que es
+    justo cuando hace falta.
+    """
+    sucursal = session.exec(select(Branch).where(Branch.code == CODIGO_SUCURSAL_PRINCIPAL)).one()
+
+    productos = 0
+    for orden, (nombre_categoria, articulos) in enumerate(CARTA_DEMO.items()):
+        categoria = session.exec(select(Category).where(Category.name == nombre_categoria)).first()
+        if categoria is None:
+            categoria = Category(name=nombre_categoria, sort_order=orden)
+            session.add(categoria)
+            session.commit()
+            session.refresh(categoria)
+
+        for nombre, precio, estacion in articulos:
+            if session.exec(select(Product).where(Product.name == nombre)).first() is not None:
+                continue
+            session.add(
+                Product(
+                    name=nombre,
+                    price=Decimal(precio),
+                    station=estacion,
+                    category_id=categoria.id,
+                )
+            )
+            productos += 1
+    session.commit()
+    logger.info("  %s %d productos de demostracion", "+" if productos else "=", productos)
+
+    zonas = 0
+    mesas = 0
+    for nombre_zona, cuantas, desde in (("Interior", 8, 1), ("Terraza", 4, 9)):
+        zona = session.exec(
+            select(Sector).where(Sector.branch_id == sucursal.id).where(Sector.name == nombre_zona)
+        ).first()
+        if zona is None:
+            zona = Sector(branch_id=sucursal.id, name=nombre_zona)
+            session.add(zona)
+            session.commit()
+            session.refresh(zona)
+            zonas += 1
+
+        for numero in range(desde, desde + cuantas):
+            ya = session.exec(
+                select(RestaurantTable)
+                .where(RestaurantTable.branch_id == sucursal.id)
+                .where(RestaurantTable.number == numero)
+            ).first()
+            if ya is not None:
+                continue
+            session.add(
+                RestaurantTable(
+                    branch_id=sucursal.id,
+                    sector_id=zona.id,
+                    number=numero,
+                    capacity=4,
+                    position_x=((numero - 1) % 4) * 120,
+                    position_y=((numero - 1) // 4) * 120,
+                )
+            )
+            mesas += 1
+    session.commit()
+    logger.info("  %s %d zonas y %d mesas", "+" if mesas else "=", zonas, mesas)
+
+
 def sembrar(*, demo: bool = False) -> None:
     logger.info("Sembrando sobre %s", settings.database_kind)
     with Session(engine) as session:
@@ -235,7 +327,8 @@ def sembrar(*, demo: bool = False) -> None:
         sucursal = sembrar_sucursal_principal(session)
         sembrar_admin(session, sucursal, rol_admin)
     if demo:
-        logger.info("  (todavia no hay datos de demostracion que sembrar)")
+        with Session(engine) as session:
+            sembrar_demo(session)
     logger.info("Listo.")
 
 

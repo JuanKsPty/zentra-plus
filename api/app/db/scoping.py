@@ -73,14 +73,18 @@ def consulta[T](modelo: type[T], alcance: Alcance) -> SelectOfScalar[T]:
     return q.where(col(modelo.branch_id) == alcance.branch_id)
 
 
-def fijar_sucursal[T](instancia: T, alcance: Alcance) -> T:
+def crear_en_sucursal[T](modelo: type[T], datos, alcance: Alcance, **extra) -> T:
     """
-    Pone la sucursal en algo que se va a guardar.
+    Construye algo que pertenece a una sucursal, con la sucursal ya puesta.
 
-    La sucursal se toma del alcance y NUNCA del cuerpo de la peticion: los
-    esquemas de entrada no declaran `branch_id`, y con `extra="forbid"` mandarlo
-    devuelve 422. Si viniera de fuera, escribir en la sucursal de al lado seria
-    cuestion de cambiar un campo del JSON.
+    Es un CONSTRUCTOR y no un «pon el campo despues» porque la validacion ocurre
+    al construir: un `Modelo.model_validate(datos)` con `branch_id` obligatorio
+    revienta antes de que nadie tenga ocasion de rellenarlo.
+
+    La sucursal sale del alcance y NUNCA del cuerpo de la peticion. Los esquemas
+    de entrada no declaran `branch_id`, asi que mandarlo da 422; si viniera de
+    fuera, escribir en la sede de al lado seria cuestion de cambiar un campo del
+    JSON.
     """
     if alcance.consolidado:
         # No existe «crear una comanda en todas las sucursales». Si esto salta,
@@ -90,6 +94,6 @@ def fijar_sucursal[T](instancia: T, alcance: Alcance) -> T:
             "escritura_sin_sucursal",
             "Hay que elegir una sucursal para poder guardar.",
         )
-    if isinstance(instancia, ConSucursal):
-        instancia.branch_id = alcance.branch_id  # type: ignore[assignment]
-    return instancia
+
+    campos = datos if isinstance(datos, dict) else datos.model_dump()
+    return modelo(**campos, branch_id=alcance.branch_id, **extra)  # type: ignore[call-arg]

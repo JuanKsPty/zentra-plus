@@ -22,7 +22,16 @@ from app.core import permissions as P
 from app.core.config import settings
 from app.core.security import hashear
 from app.db.session import engine
-from app.models import Branch, BranchCounter, Permission, Role, RolePermission, User, UserBranch
+from app.models import (
+    Branch,
+    BranchCounter,
+    BusinessConfig,
+    Permission,
+    Role,
+    RolePermission,
+    User,
+    UserBranch,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("zentra.seed")
@@ -71,6 +80,16 @@ def asegurar_contador(session: Session, sucursal: Branch) -> None:
         session.add(BranchCounter(branch_id=sucursal.id))
         session.commit()
         logger.info("  + contador de cuentas para %s", sucursal.code)
+
+
+def sembrar_configuracion(session: Session) -> None:
+    """Los datos del negocio. Una fila, y la base no deja que haya dos."""
+    if session.exec(select(BusinessConfig)).first() is not None:
+        logger.info("  = configuracion del negocio")
+        return
+    session.add(BusinessConfig(business_name=settings.app_name))
+    session.commit()
+    logger.info("  + configuracion del negocio")
 
 
 def sembrar_permisos(session: Session) -> None:
@@ -210,6 +229,7 @@ def asegurar_asignacion(session: Session, usuario: User, sucursal: Branch) -> No
 def sembrar(*, demo: bool = False) -> None:
     logger.info("Sembrando sobre %s", settings.database_kind)
     with Session(engine) as session:
+        sembrar_configuracion(session)
         sembrar_permisos(session)
         rol_admin = sembrar_roles(session)
         sucursal = sembrar_sucursal_principal(session)

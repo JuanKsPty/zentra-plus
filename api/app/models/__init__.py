@@ -22,6 +22,11 @@ from app.models.role import (
     RolePermission,
     RolePublic,
 )
+from app.models.settings import (
+    BusinessConfig,
+    BusinessConfigPublic,
+    BusinessConfigUpdate,
+)
 from app.models.user import (
     LoginPorCorreo,
     LoginPorPin,
@@ -33,6 +38,9 @@ from app.models.user import (
 
 __all__ = [
     "Branch",
+    "BusinessConfig",
+    "BusinessConfigPublic",
+    "BusinessConfigUpdate",
     "BranchCounter",
     "BranchCreate",
     "BranchPublic",

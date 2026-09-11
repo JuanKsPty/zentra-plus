@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.routes import auth, health, roles, users
+from app.api.routes import auth, business_config, health, roles, users
 from app.core.deps import sesion_requerida
 
 api_router = APIRouter()
@@ -17,5 +17,6 @@ api_router.include_router(users.router_publico)
 protegido = APIRouter(dependencies=[Depends(sesion_requerida)])
 protegido.include_router(users.router)
 protegido.include_router(roles.router)
+protegido.include_router(business_config.router)
 
 api_router.include_router(protegido)

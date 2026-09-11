@@ -71,6 +71,44 @@ jobs:
         # se hornea en el bundle es la URL publica de la API.
         run: pnpm run build
 
+  integracion:
+    name: Integracion — contra PostgreSQL de verdad
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zentra_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/zentra_test
+      # Los runners van en UTC. Un desajuste entre la hora local del proceso y
+      # el UTC que guarda PostgreSQL es INVISIBLE ahi, y es exactamente como un
+      # bug de rangos de fechas llega a produccion.
+      TZ: America/Panama
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.11.29'
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+
+      - run: uv sync --directory api --locked
+
+      - name: Lo que SQLite no puede probar
+        # El esquema se construye DESDE CERO en cada caso, los indices unicos y
+        # los CHECK que el autogenerate no escribe, y el ida y vuelta de
+        # numeric(10,2) — que en SQLite vuelve como float y ninguna prueba en
+        # memoria puede ver.
+        run: uv run --directory api pytest -m pg
+
   imagenes:
     name: Imagenes — que arranquen, no que compilen
     runs-on: ubuntu-latest

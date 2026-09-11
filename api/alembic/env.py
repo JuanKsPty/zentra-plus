@@ -14,7 +14,12 @@ config = context.config
 #
 # Y es `migration_url`, no `database_url`: en produccion la aplicacion habla por
 # el pooler de Supabase y las migraciones tienen que ir por la conexion directa.
-config.set_main_option("sqlalchemy.url", settings.migration_url)
+#
+# Salvo que QUIEN LLAMA ya haya puesto una. Sin este `if`, una prueba que apunta
+# Alembic a una base desechable acaba migrando la de desarrollo y comprobando
+# otra cosa distinta de la que cree.
+if not config.get_main_option("sqlalchemy.url", None):
+    config.set_main_option("sqlalchemy.url", settings.migration_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -41,7 +46,7 @@ def incluir_objeto(objeto, nombre, tipo, reflejado, comparar_con) -> bool:
 
 def migraciones_sin_conexion() -> None:
     context.configure(
-        url=settings.migration_url,
+        url=config.get_main_option("sqlalchemy.url") or settings.migration_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -67,7 +72,7 @@ def migraciones_con_conexion() -> None:
             compare_type=True,
             compare_server_default=True,
             # Solo tiene efecto en SQLite, que no sabe hacer ALTER de columnas.
-            render_as_batch=settings.database_kind == "sqlite",
+            render_as_batch=conexion.dialect.name == "sqlite",
         )
         with context.begin_transaction():
             context.run_migrations()

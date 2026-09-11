@@ -24,11 +24,29 @@ export interface Sesion {
   branchIds: string[];
 }
 
+let yaAvisado = false;
+
 function secreto(): Uint8Array | null {
   const valor = process.env.JWT_SECRET;
+
   // Sin valor por defecto, y sin aceptar el de la plantilla: es mejor rechazar
   // toda sesion que validar firmas con un secreto que esta en el repositorio.
-  if (!valor || valor.startsWith('cambia-esto')) return null;
+  if (!valor || valor.startsWith('cambia-esto')) {
+    // Y se DICE, una vez. Sin este aviso el sintoma es el peor posible: el
+    // login devuelve 200 —la API en desarrollo si acepta el secreto de
+    // ejemplo— y acto seguido el panel rebota al acceso, en bucle, sin un solo
+    // error. Media hora buscando un fallo de cookies que no existe.
+    if (!yaAvisado) {
+      yaAvisado = true;
+      console.error(
+        '[zentra] JWT_SECRET no esta definido o sigue con el valor de ejemplo, ' +
+          'asi que TODA sesion se rechaza. Genera uno con `openssl rand -hex 32` ' +
+          'y ponlo en el .env de la raiz, o ejecuta `pnpm run setup`.',
+      );
+    }
+    return null;
+  }
+
   return new TextEncoder().encode(valor);
 }
 

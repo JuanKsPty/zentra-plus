@@ -1,5 +1,10 @@
 import type { Permiso } from '@/config/permissions';
 
+export interface Destino {
+  permiso: Permiso;
+  ruta: string;
+}
+
 /**
  * A que pantalla va cada persona al entrar.
  *
@@ -13,8 +18,18 @@ import type { Permiso } from '@/config/permissions';
  *
  * Quien atiende mesas va antes que quien cobra: un encargado que hace las dos
  * cosas empieza el turno de pie, en el salon.
+ *
+ * REGLA: un destino entra AQUI en el mismo commit que su pantalla. Aterrizar a
+ * alguien en un 404 nada mas entrar es peor que aterrizarlo en un panel con
+ * poco contenido, y `landing.spec.ts` lo comprueba contra las carpetas reales.
  */
-const DESTINOS: readonly { permiso: Permiso; ruta: string }[] = [
+export const DESTINOS: readonly Destino[] = [
+  { permiso: 'settings:write', ruta: '/panel' },
+  { permiso: 'reports:read', ruta: '/panel' },
+];
+
+/** El orden completo previsto, para que la regla no se pierda por el camino. */
+export const DESTINOS_PREVISTOS: readonly Destino[] = [
   { permiso: 'settings:write', ruta: '/panel' },
   { permiso: 'orders:write', ruta: '/salon' },
   { permiso: 'cash:write', ruta: '/caja' },
@@ -24,7 +39,10 @@ const DESTINOS: readonly { permiso: Permiso; ruta: string }[] = [
 
 export const DESTINO_POR_DEFECTO = '/panel';
 
-export function destinoPara(permisos: readonly string[] | null | undefined): string {
+export function destinoPara(
+  permisos: readonly string[] | null | undefined,
+  destinos: readonly Destino[] = DESTINOS,
+): string {
   const tiene = permisos ?? [];
-  return DESTINOS.find((d) => tiene.includes(d.permiso))?.ruta ?? DESTINO_POR_DEFECTO;
+  return destinos.find((d) => tiene.includes(d.permiso))?.ruta ?? DESTINO_POR_DEFECTO;
 }

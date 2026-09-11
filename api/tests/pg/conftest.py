@@ -10,6 +10,7 @@ Estas se saltan si no hay base delante, y son obligatorias en el CI.
 """
 
 import os
+import pathlib
 from collections.abc import Generator
 
 import pytest
@@ -18,7 +19,23 @@ from sqlmodel import Session, create_engine
 
 URL = os.environ.get("TEST_DATABASE_URL", "")
 
-pytestmark = pytest.mark.pg
+
+def pytest_collection_modifyitems(items) -> None:
+    """
+    Marca como `pg` todo lo que viva en esta carpeta.
+
+    Y NO con `pytestmark = pytest.mark.pg` a nivel de modulo, que es lo que
+    parece que deberia funcionar: en un `conftest.py`, `pytestmark` solo afecta
+    a las pruebas de ESE archivo, no a las de los modulos vecinos. Con esa
+    version, `pytest -m pg` seleccionaba CERO casos y el trabajo del CI fallaba
+    por no encontrar nada que correr — que es mejor que lo contrario, pero se
+    tarda en entender.
+
+    Asi, ademas, un archivo nuevo en esta carpeta no puede olvidarse la marca.
+    """
+    for item in items:
+        if item.path.is_relative_to(pathlib.Path(__file__).parent):
+            item.add_marker(pytest.mark.pg)
 
 
 @pytest.fixture(scope="session", name="motor_pg")

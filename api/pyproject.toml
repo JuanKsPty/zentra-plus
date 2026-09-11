@@ -25,6 +25,12 @@ target-version = "py313"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
 
+[tool.ruff.lint.isort]
+# Sin esto, ruff toma `alembic` por paquete propio del proyecto —hay una carpeta
+# alembic/ en la raiz— y quiere separarlo del resto. Cada migracion generada
+# saldria con el orden de imports en rojo y habria que recolocarlo a mano.
+known-third-party = ["alembic"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

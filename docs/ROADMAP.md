@@ -60,13 +60,24 @@ con su prueba, porque el razonamiento del orden es lo que se pierde primero.
 
 > El negocio describe qué vende y dónde se sienta la gente.
 
-- [ ] Categorías, productos y modificadores, a nivel negocio
-- [ ] Precio y disponibilidad por sucursal
-- [ ] Sectores y mesas, con el estado del salón como fuente de verdad
-- [ ] Mapa del salón: dibujar, editar y guardar en bloque
+- [x] Categorías y productos, a nivel negocio
+- [x] Precio y disponibilidad por sucursal
+- [x] Sectores y mesas, con el estado del salón como fuente de verdad
+- [x] El mapa se guarda en bloque, en una sola petición
+- [x] Catálogo y salón visibles desde el panel
+- [ ] Modificadores: el modelo está, faltan endpoints y pantalla
+- [ ] Editar el catálogo desde el panel (hoy es solo lectura)
 
-**Se demuestra:** crear una categoría, tres productos con modificadores y un sector con cuatro
-mesas desde el panel, y verlas en el mapa.
+**Se demuestra:** `pnpm run seed --demo` crea la carta y doce mesas; el panel las muestra, la
+búsqueda filtra y el precio que aparece es el de la sucursal activa.
+
+*Cambió sobre el plan:* el `branch_id` se ponía después de construir el modelo y la validación
+ocurre al construir, así que `fijar_sucursal` pasó a ser `crear_en_sucursal`, un constructor.
+
+*Y dos trampas que costaron encontrar:* el autogenerate de Alembic propuso **borrar** el índice
+de fila única de la configuración —lo ve en la base, no lo encuentra en los modelos porque va
+sobre una expresión, y concluye que sobra—; y un componente de servidor no tiene tarro de
+galletas, así que `credentials: 'include'` no manda nada y la API respondía 401 a todo.
 
 ## Fase 3 — Servicio en vivo
 

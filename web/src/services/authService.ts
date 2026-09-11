@@ -1,4 +1,4 @@
-import { apiFetch } from '@/services/http';
+import { apiFetch, recordarPuerta } from '@/services/http';
 import type { UsuarioDto } from '@/types/api';
 
 export interface Usuario {
@@ -16,15 +16,19 @@ const aUsuario = (dto: UsuarioDto): Usuario => ({
 });
 
 export async function entrarConCorreo(email: string, password: string): Promise<Usuario> {
-  return aUsuario(
+  const usuario = aUsuario(
     await apiFetch<UsuarioDto>('/auth/login', { method: 'POST', body: { email, password } }),
   );
+  recordarPuerta('email');
+  return usuario;
 }
 
 export async function entrarConPin(userId: string, pin: string): Promise<Usuario> {
-  return aUsuario(
+  const usuario = aUsuario(
     await apiFetch<UsuarioDto>('/auth/pin', { method: 'POST', body: { user_id: userId, pin } }),
   );
+  recordarPuerta('pin');
+  return usuario;
 }
 
 export async function cerrarSesion(): Promise<void> {

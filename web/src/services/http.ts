@@ -44,17 +44,82 @@ interface Opciones extends Omit<RequestInit, 'body'> {
 }
 
 /**
+ * Donde volver a entrar cuando la sesion se acaba de verdad.
+ *
+ * La cookie de sesion es httpOnly, asi que el navegador NO puede saber si se
+ * entro por correo o por PIN. Se guarda una pista —solo eso, ningun secreto—
+ * al entrar, porque mandar a un mesero al formulario de correo es mandarlo a
+ * una pantalla donde no tiene credenciales que poner.
+ */
+const CLAVE_PUERTA = 'zentra:puerta';
+
+export function recordarPuerta(puerta: 'email' | 'pin'): void {
+  try {
+    localStorage.setItem(CLAVE_PUERTA, puerta);
+  } catch {
+    // Ventana privada o almacenamiento bloqueado: se pierde la pista y se cae
+    // al formulario de correo. Es peor que acertar, y mucho mejor que reventar.
+  }
+}
+
+function puertaRecordada(): string {
+  try {
+    return localStorage.getItem(CLAVE_PUERTA) === 'pin' ? '/acceso/pin' : '/acceso';
+  } catch {
+    return '/acceso';
+  }
+}
+
+/**
+ * Rutas donde un 401 significa «esas credenciales no valen», no «tu sesion
+ * caduco».
+ *
+ * Sin esta excepcion, teclear mal el PIN dispararia un intento de refresco y,
+ * al fallar, echaria al operario del sistema. Un dedo torpe se convertiria en
+ * «llama al encargado».
+ */
+const COMPROBACION_DE_CREDENCIALES = ['/auth/login', '/auth/pin', '/auth/refresh'];
+
+/**
  * La unica funcion que habla con la API.
  *
  * Pone la base, manda la cookie de sesion y normaliza los errores. Ningun
  * componente debe llamar a `fetch` por su cuenta.
  */
 export async function apiFetch<T>(path: string, opciones: Opciones = {}): Promise<T> {
-  const { body, headers, ...resto } = opciones;
+  let respuesta = await enviar(path, opciones);
 
-  let respuesta: Response;
+  // UN solo reintento, y solo ante un 401 de sesion caducada.
+  //
+  // Se reenvia la MISMA peticion, con el mismo cuerpo: cuando haya claves de
+  // reenvio, eso es lo que garantiza que un reintento no cobre ni pida dos
+  // veces. Reintentar mas de una vez no arregla nada y multiplica el dano.
+  if (respuesta.status === 401 && !COMPROBACION_DE_CREDENCIALES.includes(path)) {
+    const renovada = await enviar('/auth/refresh', { method: 'POST' });
+    if (renovada.ok) {
+      respuesta = await enviar(path, opciones);
+    } else if (typeof window !== 'undefined') {
+      // La sesion se acabo de verdad. Se va a la puerta por la que entro, no a
+      // la de siempre.
+      window.location.href = puertaRecordada();
+      throw new ApiError(401, 'La sesion expiro. Vuelve a entrar.', 'sesion_expirada');
+    }
+  }
+
+  if (!respuesta.ok) {
+    throw await errorDeRespuesta(respuesta);
+  }
+
+  // 204 y cuerpos vacios: devolver undefined es mas util que reventar en .json()
+  if (respuesta.status === 204) return undefined as T;
+  const texto = await respuesta.text();
+  return (texto ? JSON.parse(texto) : undefined) as T;
+}
+
+async function enviar(path: string, opciones: Opciones): Promise<Response> {
+  const { body, headers, ...resto } = opciones;
   try {
-    respuesta = await fetch(`${API_BASE_URL}/api${path}`, {
+    return await fetch(`${API_BASE_URL}/api${path}`, {
       ...resto,
       credentials: 'include',
       cache: 'no-store',
@@ -67,15 +132,6 @@ export async function apiFetch<T>(path: string, opciones: Opciones = {}): Promis
   } catch (causa) {
     throw new NetworkError(undefined, { cause: causa });
   }
-
-  if (!respuesta.ok) {
-    throw await errorDeRespuesta(respuesta);
-  }
-
-  // 204 y cuerpos vacios: devolver undefined es mas util que reventar en .json()
-  if (respuesta.status === 204) return undefined as T;
-  const texto = await respuesta.text();
-  return (texto ? JSON.parse(texto) : undefined) as T;
 }
 
 async function errorDeRespuesta(respuesta: Response): Promise<ApiError> {

@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "plugins": ["react", "nextjs", "jsx-a11y", "typescript", "import"],
+  "env": { "browser": true, "es2024": true },
+  "rules": {
+    // React 19 con el runtime automatico de JSX: no hay que importar React,
+    // el compilador inyecta jsx() por su cuenta.
+    "react/react-in-jsx-scope": "off",
+    // `import './globals.css'` no asigna nada y es exactamente como Next
+    // espera que se cargue la hoja de estilos.
+    "import/no-unassigned-import": "off"
+  },
+  "ignorePatterns": [".next", "node_modules", "src/components/ui"]
+}

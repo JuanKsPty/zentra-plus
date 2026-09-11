@@ -1,0 +1,7 @@
+# Solo `web`. El backend es Python y lo gestiona uv, no pnpm.
+packages:
+  - 'web'
+
+onlyBuiltDependencies:
+  - oxlint
+  - sharp

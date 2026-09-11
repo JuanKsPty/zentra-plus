@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+web/.next
+web/src/components/ui
+api/

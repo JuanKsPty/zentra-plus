@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de Zentra+.
+ *
+ * Papel calido en claro, grafito frio en oscuro, un unico acento petroleo.
+ * La paleta completa y el sistema de densidad llegan con el cascaron de la
+ * aplicacion; aqui estan los que la primera pantalla necesita.
+ *
+ * REGLA: nunca colores crudos de Tailwind (bg-white, text-blue-600). Siempre
+ * estos tokens. Es lo que hace que el modo oscuro no tenga CSS por pantalla.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+:root {
+  --background: oklch(0.985 0.004 95); /* papel, no blanco */
+  --foreground: oklch(0.22 0.014 240); /* tinta grafito */
+  --card: oklch(1 0 0); /* blanco: la tarjeta flota sobre el papel */
+  --muted-foreground: oklch(0.505 0.016 245);
+  --border: oklch(0.9 0.008 95);
+  --primary: oklch(0.525 0.108 216); /* petroleo Zentra */
+  --primary-foreground: oklch(0.985 0.004 95);
+  --success: oklch(0.585 0.132 152);
+  --destructive: oklch(0.545 0.205 27);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.165 0.012 250); /* grafito frio: es el fondo del KDS */
+    --foreground: oklch(0.965 0.004 95);
+    --card: oklch(0.215 0.014 250);
+    --muted-foreground: oklch(0.72 0.012 250);
+    --border: oklch(1 0 0 / 10%);
+    --primary: oklch(0.72 0.115 214); /* sube la luminosidad: el petroleo oscuro no contrasta */
+    --primary-foreground: oklch(0.17 0.02 240);
+    --success: oklch(0.72 0.15 152);
+    --destructive: oklch(0.68 0.19 25);
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

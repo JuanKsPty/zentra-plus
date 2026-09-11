@@ -1,0 +1,15 @@
+Migraciones de Zentra+, con Alembic.
+
+    pnpm run db:revision "lo que cambia"   crea una revision
+    pnpm run db:migrate                    la aplica
+    pnpm run db:downgrade                  deshace la ultima
+
+La carpeta versions/ esta vacia a proposito: la primera migracion llega con el
+primer modelo de dominio. El esquema sale de aqui desde el primer dia; no hay
+creacion automatica de tablas al arrancar, porque una base de desarrollo que se
+sincroniza sola hace que la primera migracion de verdad salga con un diff vacio
+y los entornos divergan en silencio.
+
+Al generar una revision, LEERLA antes de aplicarla. El autogenerate no ve:
+indices parciales (se excluyen en env.py y se escriben a mano), constraints
+CHECK, ni extensiones como unaccent.

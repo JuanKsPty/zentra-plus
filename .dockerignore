@@ -1,0 +1,27 @@
+# Lo que no debe entrar en el contexto de build.
+# Cuanto mas corto sea el contexto, mas rapido construye Docker.
+node_modules
+api/.venv
+web/.next
+web/node_modules
+
+# Cache de herramientas: no sirve dentro de la imagen
+.ruff_cache
+.pytest_cache
+__pycache__
+coverage
+playwright-report
+test-results
+
+# Secretos: que no acaben en una capa de la imagen
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.idea
+.vscode
+docs
+*.md
+!README.md

@@ -1,0 +1,98 @@
+# ---------------------------------------------------------------------------
+#  DESARROLLO: todo en contenedores, con recarga en caliente.
+#
+#      docker compose up          (o: pnpm dev)
+#
+#      Frontend  http://localhost:3000
+#      API       http://localhost:8000/api/docs
+#      Postgres  localhost:5432
+#
+#  Para la version compilada: pnpm run docker:prod -> docker-compose.prod.yml
+# ---------------------------------------------------------------------------
+name: zentra
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-zentra}
+      TZ: ${TZ:-America/Panama}
+    ports:
+      # Publicado para poder usar psql, alembic o los tests desde el host.
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # postgres:18+ quiere UN solo mount en /var/lib/postgresql. El clasico
+      # .../data de las versiones <=17 hace que el contenedor no arranque.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-zentra}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      target: dev
+    # Etiqueta propia: si dev y prod compartieran nombre de imagen, el build de
+    # uno sobreescribiria el del otro y "up" reusaria la imagen equivocada.
+    image: zentra-api-dev
+    restart: unless-stopped
+    volumes:
+      # El codigo se monta: al guardar un archivo, uvicorn recarga.
+      # El entorno de Python vive en /opt/venv, fuera de este volumen.
+      - ./api:/app
+    environment:
+      # Dentro de la red de compose la base se llama "db", no localhost.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-zentra}
+      APP_ENV: ${APP_ENV:-dev}
+      APP_NAME: ${APP_NAME:-Zentra+}
+      TZ: ${TZ:-America/Panama}
+      JWT_SECRET: ${JWT_SECRET:-cambia-esto-por-openssl-rand-hex-32}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-cambia-esto-tambien-y-que-sea-distinto}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      # En macOS y Windows los eventos de archivo no siempre cruzan el volumen;
+      # con esto la recarga automatica funciona igual.
+      WATCHFILES_FORCE_POLLING: 'true'
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '8000:8000'
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      target: dev
+    image: zentra-web-dev
+    restart: unless-stopped
+    volumes:
+      - ./web:/repo/web
+      # Volumen propio para node_modules: el del host no sirve dentro del
+      # contenedor y taparia el que instalo la imagen.
+      - web-node-modules:/repo/web/node_modules
+      # Y otro para .next, por lo mismo: un build del host es de otra
+      # plataforma y Next arrancaria con artefactos que no puede usar.
+      - web-next:/repo/web/.next
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      API_INTERNAL_URL: http://api:8000
+      TZ: ${TZ:-America/Panama}
+      # Next necesita sondear el sistema de archivos para ver los cambios
+      # a traves del volumen.
+      WATCHPACK_POLLING: 'true'
+    depends_on:
+      - api
+    ports:
+      - '3000:3000'
+
+volumes:
+  postgres-data:
+  web-node-modules:
+  web-next:

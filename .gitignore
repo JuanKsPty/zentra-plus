@@ -1,0 +1,31 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+api/.venv/
+
+# Salidas de compilacion
+web/.next/
+web/out/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+api/dist/
+
+# Cache de herramientas
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+coverage/
+playwright-report/
+test-results/
+
+# Entorno: el .env NUNCA se versiona. La plantilla es .env.example
+.env
+.env.*
+!.env.example
+api/app.db
+
+# Sistema operativo y editores
+.DS_Store
+.idea/
+.vscode/

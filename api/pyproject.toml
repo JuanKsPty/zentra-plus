@@ -1,0 +1,36 @@
+[project]
+name = "zentra-api"
+version = "0.1.0"
+description = "API de Zentra+, hecha con FastAPI"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.141.1",
+    "sqlmodel>=0.0.42",
+    "psycopg[binary]>=3.3.5",
+    "pydantic-settings>=2.15.0",
+    "alembic>=1.19.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "httpx2>=2.0.0",
+    "ruff>=0.16.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+markers = [
+    # Lo que SQLite no puede probar: indices parciales bajo concurrencia,
+    # unaccent, numeric de verdad. Se saltan si no hay Postgres delante.
+    "pg: necesita un PostgreSQL real (TEST_DATABASE_URL)",
+]

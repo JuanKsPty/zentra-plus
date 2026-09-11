@@ -1,0 +1,49 @@
+{
+  "name": "zentra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zentra+ — gestion operativa multisucursal para restaurantes, bares y cafeterias",
+  "packageManager": "pnpm@11.1.3",
+  "engines": {
+    "node": ">=22.22"
+  },
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "dev": "docker compose up",
+    "dev:build": "docker compose up --build",
+    "stop": "docker compose down",
+    "logs": "docker compose logs -f",
+    "logs:api": "docker compose logs -f api",
+    "logs:web": "docker compose logs -f web",
+    "ps": "docker compose ps",
+    "dev:host": "concurrently -k -n api,web -c magenta,cyan \"pnpm run dev:api\" \"pnpm run dev:web\"",
+    "dev:api": "uv run --directory api uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "seed": "docker compose exec api python -m app.seed",
+    "seed:host": "uv run --directory api python -m app.seed",
+    "db:up": "docker compose up -d db",
+    "db:psql": "docker compose exec db psql -U postgres -d zentra",
+    "db:reset": "docker compose down -v && docker compose up -d db",
+    "db:revision": "docker compose exec api alembic revision --autogenerate -m",
+    "db:migrate": "docker compose exec api alembic upgrade head",
+    "db:downgrade": "docker compose exec api alembic downgrade -1",
+    "shell:api": "docker compose exec api bash",
+    "test": "pnpm run test:api && pnpm run test:web",
+    "test:api": "uv run --directory api pytest",
+    "test:web": "pnpm --filter web test",
+    "lint": "pnpm run lint:api && pnpm run lint:web",
+    "lint:api": "uv run --directory api ruff check .",
+    "lint:web": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web exec tsc --noEmit",
+    "format": "prettier --write . && uv run --directory api ruff format .",
+    "check:secrets": "bash scripts/check-secrets.sh",
+    "docker:api": "docker build -t zentra-api:local --target prod ./api",
+    "docker:web": "docker build -t zentra-web:local --target prod -f web/Dockerfile ."
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "prettier": "^3.9.6"
+  }
+}

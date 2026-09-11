@@ -104,6 +104,19 @@ levantándose a la vez no compitan por el mismo `ALTER TABLE`.
 └── docker-compose.yml    Desarrollo: web + api + base
 ```
 
+## Credenciales fuera del repositorio
+
+El `.env` está en `.gitignore` y no se versiona. Además hay un guardián:
+
+```bash
+pnpm run check:secrets          # revisa todo lo rastreado
+git config core.hooksPath .githooks   # y lo engancha al pre-commit
+```
+
+El hook **no se instala solo**: un repositorio que ejecuta código en tu máquina nada más
+clonarlo es exactamente lo que no conviene normalizar. Es una línea, y se corre una vez por
+clon.
+
 ## Licencia
 
 MIT. Ver [LICENSE](LICENSE).

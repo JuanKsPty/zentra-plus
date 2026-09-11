@@ -42,6 +42,28 @@ class Settings(BaseSettings):
     # secreto que esta publicado en el repositorio.
     jwt_secret: str = ""
     jwt_refresh_secret: str = ""
+    jwt_algorithm: str = "HS256"
+
+    # Sesion por correo: acceso corto, refresco largo. Es para el panel, que se
+    # usa desde un escritorio y donde volver a entrar no cuesta nada.
+    jwt_access_minutes: int = 15
+    jwt_refresh_days: int = 7
+
+    # Sesion por PIN: al reves, y a proposito. El acceso dura todo un turno
+    # porque un mesero no puede reautenticarse a mitad de servicio; el refresco
+    # dura menos que el del correo porque cuatro digitos son una credencial
+    # debil y la tableta se queda en la barra toda la noche.
+    jwt_pin_access_hours: int = 4
+    jwt_pin_refresh_hours: int = 12
+
+    # Cuantos refrescos vivos puede tener un usuario a la vez. Tres pantallas
+    # (salon, caja, telefono) mas margen. Sin tope, la tabla crece sin fin.
+    max_refresh_por_usuario: int = 5
+
+    # ---- Siembra -------------------------------------------------------
+    seed_admin_name: str = "Administrador"
+    seed_admin_email: str = ""
+    seed_admin_password: str = ""
 
     # ---- CORS ----------------------------------------------------------
     # Se deja como str y no como list[str] a proposito: pydantic-settings

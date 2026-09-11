@@ -6,6 +6,7 @@ detectar el esquema y lo que leen los tests para crear las tablas. Un modelo que
 no aparezca en este archivo no existe para las migraciones.
 """
 
+from app.models.auth import RefreshToken
 from app.models.base import ConSucursal, IdUUID, Timestamps, ahora_utc
 from app.models.branch import (
     Branch,
@@ -13,6 +14,13 @@ from app.models.branch import (
     BranchCreate,
     BranchPublic,
     BranchUpdate,
+)
+from app.models.user import (
+    LoginPorCorreo,
+    LoginPorPin,
+    User,
+    UserBranch,
+    UserPublic,
 )
 
 __all__ = [
@@ -23,6 +31,12 @@ __all__ = [
     "BranchUpdate",
     "ConSucursal",
     "IdUUID",
+    "LoginPorCorreo",
+    "LoginPorPin",
+    "RefreshToken",
     "Timestamps",
+    "User",
+    "UserBranch",
+    "UserPublic",
     "ahora_utc",
 ]

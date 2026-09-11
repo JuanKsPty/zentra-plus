@@ -13,13 +13,15 @@ restaure, que es justo cuando hace falta.
 
 import argparse
 import logging
+import secrets
 import sys
 
 from sqlmodel import Session, select
 
 from app.core.config import settings
+from app.core.security import hashear
 from app.db.session import engine
-from app.models import Branch, BranchCounter
+from app.models import Branch, BranchCounter, User, UserBranch
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("zentra.seed")
@@ -70,10 +72,71 @@ def asegurar_contador(session: Session, sucursal: Branch) -> None:
         logger.info("  + contador de cuentas para %s", sucursal.code)
 
 
+def sembrar_admin(session: Session, sucursal: Branch) -> None:
+    """
+    El primer usuario, el unico que puede crear a los demas.
+
+    Las credenciales salen de SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD. Fuera de
+    desarrollo, si faltan NO SE CREA NADA y se dice por que: un administrador
+    con credenciales que estan escritas en un repositorio publico es peor que no
+    tener administrador.
+
+    En desarrollo, si falta la contrasena se genera una al azar y se imprime UNA
+    VEZ. Cambia en cada instalacion nueva, asi que no hay nada que publicar, y
+    sigue siendo un comando y a trabajar.
+    """
+    correo = settings.seed_admin_email.strip().lower()
+
+    if not correo:
+        if not settings.is_dev:
+            logger.warning("  ! sin administrador: define SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD")
+            return
+        correo = "admin@zentra.local"
+
+    existente = session.exec(select(User).where(User.email == correo)).first()
+    if existente is not None:
+        # NUNCA se reescribe la contrasena de un admin que ya existe: sembrar
+        # otra vez no puede devolver el acceso a quien lo perdio.
+        logger.info("  = administrador %s", correo)
+        asegurar_asignacion(session, existente, sucursal)
+        return
+
+    clave = settings.seed_admin_password.strip()
+    generada = False
+    if not clave:
+        if not settings.is_dev:
+            logger.warning("  ! sin administrador: falta SEED_ADMIN_PASSWORD")
+            return
+        clave = secrets.token_urlsafe(12)
+        generada = True
+
+    admin = User(
+        name=settings.seed_admin_name,
+        email=correo,
+        password_hash=hashear(clave),
+    )
+    session.add(admin)
+    session.commit()
+    session.refresh(admin)
+    asegurar_asignacion(session, admin, sucursal)
+
+    logger.info("  + administrador %s", correo)
+    if generada:
+        logger.warning("    contrasena generada (se muestra una sola vez): %s", clave)
+
+
+def asegurar_asignacion(session: Session, usuario: User, sucursal: Branch) -> None:
+    ya = session.get(UserBranch, (usuario.id, sucursal.id))
+    if ya is None:
+        session.add(UserBranch(user_id=usuario.id, branch_id=sucursal.id, is_primary=True))
+        session.commit()
+
+
 def sembrar(*, demo: bool = False) -> None:
     logger.info("Sembrando sobre %s", settings.database_kind)
     with Session(engine) as session:
-        sembrar_sucursal_principal(session)
+        sucursal = sembrar_sucursal_principal(session)
+        sembrar_admin(session, sucursal)
     if demo:
         logger.info("  (todavia no hay datos de demostracion que sembrar)")
     logger.info("Listo.")

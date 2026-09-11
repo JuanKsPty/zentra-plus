@@ -37,6 +37,15 @@ def refresh(peticion: Request, session: SessionDep, respuesta: Response) -> User
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Cerrar sesion")
 def logout(peticion: Request, session: SessionDep, respuesta: Response) -> None:
+    """
+    Cerrar sesion NO exige sesion, y es deliberado.
+
+    Si la exigiera, quien tiene el token de acceso caducado no podria cerrarla
+    — que es justo cuando mas falta hace. Lee la cookie de refresco, revoca ese
+    refresco y borra las dos cookies. Sin cookie no hace nada y responde 204
+    igual: lo que el cliente pidio, «no quiero seguir con la sesion», ya se
+    cumple.
+    """
     auth_service.salir(session, peticion.cookies.get(COOKIE_REFRESCO))
     # Los MISMOS atributos que al ponerlas. Con un `secure` o un `samesite`
     # distinto, varios navegadores no reconocen la cookie como la misma y la
@@ -55,5 +64,6 @@ def me(sesion: SesionActual) -> dict:
         "branch_id": str(sesion.branch_id),
         "branch_ids": [str(b) for b in sesion.branch_ids],
         "login_method": sesion.login_method,
+        "role_name": sesion.role_name,
         "permissions": sesion.permissions,
     }

@@ -27,6 +27,7 @@ class User(IdUUID, Timestamps, table=True):
     password_hash: str | None = Field(default=None, max_length=255)
     pin_hash: str | None = Field(default=None, max_length=255)
 
+    role_id: UUID | None = Field(default=None, foreign_key="roles.id", index=True)
     is_active: bool = True
 
     # El contador de revocacion. Sube al desactivar a alguien, al cambiarle el
@@ -63,6 +64,22 @@ class UserPublic(SQLModel):
     name: str
     email: str | None
     is_active: bool
+    role_id: UUID | None = None
+    role_name: str | None = None
+
+
+class UserOperativo(SQLModel):
+    """
+    Lo minimo para pintar la rejilla del teclado de PIN.
+
+    Es PUBLICO —hay que verlo antes de tener sesion— asi que lleva lo justo para
+    reconocerse en una lista: nombre y puesto. Nunca el correo: la lista de
+    correos del personal es informacion que no hace falta para entrar.
+    """
+
+    id: UUID
+    name: str
+    role_name: str | None = None
 
 
 class LoginPorCorreo(SQLModel):

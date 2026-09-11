@@ -15,11 +15,19 @@ from app.models.branch import (
     BranchPublic,
     BranchUpdate,
 )
+from app.models.role import (
+    Permission,
+    PermissionPublic,
+    Role,
+    RolePermission,
+    RolePublic,
+)
 from app.models.user import (
     LoginPorCorreo,
     LoginPorPin,
     User,
     UserBranch,
+    UserOperativo,
     UserPublic,
 )
 
@@ -33,10 +41,16 @@ __all__ = [
     "IdUUID",
     "LoginPorCorreo",
     "LoginPorPin",
+    "Permission",
+    "PermissionPublic",
     "RefreshToken",
+    "Role",
+    "RolePermission",
+    "RolePublic",
     "Timestamps",
     "User",
     "UserBranch",
+    "UserOperativo",
     "UserPublic",
     "ahora_utc",
 ]

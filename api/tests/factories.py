@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Session
 
-from app.core.security import hashear
+from app.core.security import COOKIE_ACCESO, MetodoDeAcceso, firmar_acceso, hashear
 from app.models import Branch, BranchCounter, User, UserBranch
 
 
@@ -47,3 +47,42 @@ def crear_usuario(
 
 def uuid_cualquiera() -> UUID:
     return uuid4()
+
+
+def cookie_con(
+    permisos: list[str],
+    *,
+    branch_id: UUID | None = None,
+    branch_ids: list[UUID] | None = None,
+    metodo: MetodoDeAcceso = "email",
+    user_id: UUID | None = None,
+) -> dict[str, str]:
+    """
+    Una sesion firmada con EXACTAMENTE los permisos que el caso necesita, sin
+    tocar la base.
+
+    Se puede porque `requiere()` lee los permisos DEL TOKEN, no de la base: la
+    misma propiedad que hace barato el guard hace trivial la prueba. Es lo que
+    permite comprobar «403 con orders:write sobre un endpoint que exige
+    orders:read» sin montar roles ni usuarios.
+
+    Cuando la regla que se prueba SI consulta la base —el turno es por usuario y
+    sucursal, el umbral de descuento sale del rol— hace falta un usuario de
+    verdad, y para eso esta `crear_usuario`.
+    """
+    identificador = user_id or uuid4()
+    sucursal = branch_id or uuid4()
+    token = firmar_acceso(
+        {
+            "sub": str(identificador),
+            "tv": 0,
+            "name": "Tester",
+            "email": "tester@zentra.local",
+            "branch_id": str(sucursal),
+            "branch_ids": [str(b) for b in (branch_ids or [sucursal])],
+            "role_name": "Prueba",
+            "permissions": permisos,
+        },
+        metodo,
+    )
+    return {COOKIE_ACCESO: token}

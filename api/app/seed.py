@@ -18,10 +18,11 @@ import sys
 
 from sqlmodel import Session, select
 
+from app.core import permissions as P
 from app.core.config import settings
 from app.core.security import hashear
 from app.db.session import engine
-from app.models import Branch, BranchCounter, User, UserBranch
+from app.models import Branch, BranchCounter, Permission, Role, RolePermission, User, UserBranch
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("zentra.seed")
@@ -72,7 +73,76 @@ def asegurar_contador(session: Session, sucursal: Branch) -> None:
         logger.info("  + contador de cuentas para %s", sucursal.code)
 
 
-def sembrar_admin(session: Session, sucursal: Branch) -> None:
+def sembrar_permisos(session: Session) -> None:
+    """
+    Materializa el catalogo de constantes en la tabla.
+
+    La fuente de verdad es `app/core/permissions.py`: la tabla existe para que la
+    pantalla de roles pueda listarlos y para que la relacion con los roles sea
+    una clave foranea de verdad. Un permiso nuevo en el codigo aparece en la base
+    al sembrar, sin migracion.
+    """
+    existentes = {p.key for p in session.exec(select(Permission)).all()}
+    nuevos = 0
+    for clave in P.TODOS:
+        if clave in existentes:
+            continue
+        modulo, accion = P.partir(clave)
+        session.add(Permission(key=clave, module=modulo, action=accion))
+        nuevos += 1
+    session.commit()
+    logger.info("  %s %d permisos", "+" if nuevos else "=", nuevos or len(P.TODOS))
+
+
+def sembrar_roles(session: Session) -> Role:
+    """
+    Los roles de sistema, con sus permisos REESCRITOS en cada siembra.
+
+    Reescribirlos es lo que hace que anadir un permiso a «Cajero» en el codigo
+    llegue a la base sin migracion. Lo que NO se toca es el nombre ni la
+    existencia: `is_system` los protege del borrado, porque si alguien borra
+    «Cajero», quien lo tenia se queda sin poder cobrar.
+    """
+    administrador: Role | None = None
+
+    for nombre, (descripcion, claves) in P.ROLES_DE_SISTEMA.items():
+        rol = session.exec(select(Role).where(Role.name == nombre)).first()
+        if rol is None:
+            rol = Role(name=nombre, description=descripcion, is_system=True)
+            session.add(rol)
+            session.commit()
+            session.refresh(rol)
+            logger.info("  + rol %s", nombre)
+        else:
+            rol.description = descripcion
+            rol.is_system = True
+            session.add(rol)
+            session.commit()
+
+        actuales = {
+            f.permission_key
+            for f in session.exec(
+                select(RolePermission).where(RolePermission.role_id == rol.id)
+            ).all()
+        }
+        deseados = set(claves)
+
+        for clave in deseados - actuales:
+            session.add(RolePermission(role_id=rol.id, permission_key=clave))
+        for clave in actuales - deseados:
+            sobra = session.get(RolePermission, (rol.id, clave))
+            if sobra is not None:
+                session.delete(sobra)
+        session.commit()
+
+        if nombre == P.ADMINISTRADOR:
+            administrador = rol
+
+    assert administrador is not None
+    return administrador
+
+
+def sembrar_admin(session: Session, sucursal: Branch, rol: Role) -> None:
     """
     El primer usuario, el unico que puede crear a los demas.
 
@@ -98,6 +168,10 @@ def sembrar_admin(session: Session, sucursal: Branch) -> None:
         # NUNCA se reescribe la contrasena de un admin que ya existe: sembrar
         # otra vez no puede devolver el acceso a quien lo perdio.
         logger.info("  = administrador %s", correo)
+        if existente.role_id is None:
+            existente.role_id = rol.id
+            session.add(existente)
+            session.commit()
         asegurar_asignacion(session, existente, sucursal)
         return
 
@@ -114,6 +188,7 @@ def sembrar_admin(session: Session, sucursal: Branch) -> None:
         name=settings.seed_admin_name,
         email=correo,
         password_hash=hashear(clave),
+        role_id=rol.id,
     )
     session.add(admin)
     session.commit()
@@ -135,8 +210,10 @@ def asegurar_asignacion(session: Session, usuario: User, sucursal: Branch) -> No
 def sembrar(*, demo: bool = False) -> None:
     logger.info("Sembrando sobre %s", settings.database_kind)
     with Session(engine) as session:
+        sembrar_permisos(session)
+        rol_admin = sembrar_roles(session)
         sucursal = sembrar_sucursal_principal(session)
-        sembrar_admin(session, sucursal)
+        sembrar_admin(session, sucursal, rol_admin)
     if demo:
         logger.info("  (todavia no hay datos de demostracion que sembrar)")
     logger.info("Listo.")

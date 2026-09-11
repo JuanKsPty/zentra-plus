@@ -20,7 +20,7 @@ from app.core.security import (
     leer_refresco,
     verificar,
 )
-from app.models import Branch, RefreshToken, User, UserBranch
+from app.models import Branch, RefreshToken, Role, RolePermission, User, UserBranch
 
 # El mismo mensaje para «no existe», «contrasena incorrecta» y —cuando llegue el
 # bloqueo por intentos— «cuenta bloqueada». Distinguirlos le regala al atacante
@@ -70,8 +70,31 @@ def _sucursales_de(session: Session, usuario: User) -> tuple[UUID, list[UUID]]:
     return predeterminada.id, [predeterminada.id]
 
 
+def _permisos_de(session: Session, usuario: User) -> tuple[str | None, list[str]]:
+    """
+    El puesto y lo que puede hacer.
+
+    Los permisos se EMBEBEN en el token. El tablero de cocina y el salon hacen
+    decenas de peticiones por accion humana, y resolver el rol en cada una es una
+    consulta que se puede ahorrar entera. El precio es que un cambio de permisos
+    no surte efecto hasta el siguiente token, y para eso esta `token_version`.
+    """
+    if usuario.role_id is None:
+        return None, []
+
+    rol = session.get(Role, usuario.role_id)
+    if rol is None or not rol.is_active:
+        return None, []
+
+    claves = session.exec(
+        select(RolePermission.permission_key).where(RolePermission.role_id == rol.id)
+    ).all()
+    return rol.name, sorted(claves)
+
+
 def _emitir(session: Session, usuario: User, metodo: MetodoDeAcceso) -> SesionEmitida:
     branch_id, branch_ids = _sucursales_de(session, usuario)
+    role_name, permisos = _permisos_de(session, usuario)
 
     acceso = firmar_acceso(
         {
@@ -81,7 +104,8 @@ def _emitir(session: Session, usuario: User, metodo: MetodoDeAcceso) -> SesionEm
             "email": usuario.email,
             "branch_id": str(branch_id),
             "branch_ids": [str(b) for b in branch_ids],
-            "permissions": [],
+            "role_name": role_name,
+            "permissions": permisos,
         },
         metodo,
     )

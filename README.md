@@ -11,6 +11,23 @@ negocio, varias sucursales, catálogo compartido y operación separada.
 | Base de datos | PostgreSQL 18 en local · Supabase en producción |
 | Herramientas | pnpm, uv, Docker Compose, Vitest, pytest, ruff, oxlint |
 
+## Qué hace
+
+| Módulo | Qué resuelve |
+| --- | --- |
+| Sucursales | Un negocio con varias sedes. Catálogo compartido, operación y existencias separadas |
+| Acceso | Correo y contraseña para el panel; PIN para el personal de piso |
+| Permisos | Roles con permisos por módulo. Lo que no está permitido, se niega |
+| Catálogo | Categorías, productos y modificadores, con precio y disponibilidad por sucursal |
+| Salón | Sectores, mesas y su estado, sobre un mapa que se edita |
+| Comandas | Máquina de estados, historial y reenvío que no duplica |
+| Cocina | Tablero en vivo por estación |
+| Caja | Cobro dividido, propina, turnos con arqueo y venta de mostrador |
+| Existencias | Stock por producto y sucursal, que baja al cerrar la cuenta |
+| Reportes | Métricas del día y exportación a CSV |
+
+El estado de cada uno está en [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
 ## Puesta en marcha
 
 Hace falta [Docker](https://www.docker.com/products/docker-desktop/),

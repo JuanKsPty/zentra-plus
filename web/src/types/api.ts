@@ -58,6 +58,47 @@ export interface UsuarioOperativoDto {
   role_name: string | null;
 }
 
+export interface CategoriaDto {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface ProductoDto {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string;
+  station: string;
+  image_url: string | null;
+  is_active: boolean;
+  category_id: string | null;
+  /** Ya resuelto para la sucursal de la peticion. Quien consume esto no tiene
+   *  que saber que existe una tabla de overrides. */
+  effective_price: string;
+  is_available: boolean;
+}
+
+export interface SectorDto {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface MesaDto {
+  id: string;
+  number: number;
+  capacity: number;
+  shape: string;
+  position_x: number | null;
+  position_y: number | null;
+  is_active: boolean;
+  sector_id: string;
+  status: string;
+}
+
 export interface SaludDto {
   status: string;
   app: string;

@@ -1,4 +1,4 @@
-import { GaugeIcon, type LucideIcon } from 'lucide-react';
+import { BookOpenIcon, GaugeIcon, GridIcon, type LucideIcon } from 'lucide-react';
 
 import type { Permiso } from '@/config/permissions';
 
@@ -38,6 +38,24 @@ export const DESTINOS: Destino[] = [
     permiso: 'reports:read',
     grupo: 'operacion',
     barra: 1,
+  },
+  {
+    id: 'catalogo',
+    etiqueta: 'Catalogo',
+    href: '/panel/catalogo',
+    icono: BookOpenIcon,
+    permiso: 'catalog:read',
+    grupo: 'negocio',
+    barra: 2,
+  },
+  {
+    id: 'mesas',
+    etiqueta: 'Mesas',
+    href: '/panel/mesas',
+    icono: GridIcon,
+    permiso: 'floor:read',
+    grupo: 'negocio',
+    barra: 3,
   },
 ];
 

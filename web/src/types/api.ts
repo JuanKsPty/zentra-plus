@@ -10,6 +10,16 @@
  * compilacion aqui en vez de un undefined en pantalla.
  */
 
+/** El sobre de error de la API. Toda respuesta que no sea 2xx llega asi. */
+export interface ErrorDto {
+  error: {
+    code: string;
+    message: string;
+    details: { field: string | null; message: string }[];
+    request_id: string | null;
+  };
+}
+
 export interface SaludDto {
   status: string;
   app: string;

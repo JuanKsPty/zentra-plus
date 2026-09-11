@@ -39,3 +39,17 @@ def client_fixture(session: Session) -> Generator[TestClient]:
     # intentaria hablar con una base que en los tests no existe.
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(name="client_sin_relanzar")
+def client_sin_relanzar_fixture(session: Session) -> Generator[TestClient]:
+    """
+    Como `client`, pero deja que el manejador del 500 haga su trabajo.
+
+    Por defecto TestClient relanza las excepciones del servidor, que es lo comodo
+    para depurar pero hace imposible comprobar que un error no previsto sale con
+    el sobre de la casa y sin filtrar nada. Con esto se ejercita el camino real.
+    """
+    app.dependency_overrides[get_session] = lambda: session
+    yield TestClient(app, raise_server_exceptions=False)
+    app.dependency_overrides.clear()

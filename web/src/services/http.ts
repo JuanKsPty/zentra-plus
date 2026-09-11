@@ -1,10 +1,21 @@
 import { API_BASE_URL } from '@/lib/env';
+import type { ErrorDto } from '@/types/api';
 
 /** El servidor contesto, y contesto que no. */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** Codigo estable de la API. Es lo que se compara, nunca el mensaje. */
+    readonly code: string = 'error',
+    /**
+     * Problemas por campo, ya aplanados. Se vuelcan en el formulario con
+     * `setError`; sin aplanarlos aqui, cada formulario tendria que recorrer la
+     * lista de la API y decidir por su cuenta que hacer con ella.
+     */
+    readonly fieldErrors: Record<string, string> = {},
+    /** Enlaza este error con la linea del log de la API. */
+    readonly requestId: string | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -58,7 +69,7 @@ export async function apiFetch<T>(path: string, opciones: Opciones = {}): Promis
   }
 
   if (!respuesta.ok) {
-    throw new ApiError(respuesta.status, await mensajeDeError(respuesta));
+    throw await errorDeRespuesta(respuesta);
   }
 
   // 204 y cuerpos vacios: devolver undefined es mas util que reventar en .json()
@@ -67,13 +78,26 @@ export async function apiFetch<T>(path: string, opciones: Opciones = {}): Promis
   return (texto ? JSON.parse(texto) : undefined) as T;
 }
 
-async function mensajeDeError(respuesta: Response): Promise<string> {
+async function errorDeRespuesta(respuesta: Response): Promise<ApiError> {
+  let cuerpo: ErrorDto | undefined;
   try {
-    const cuerpo = await respuesta.json();
-    // El sobre de error de la API: { error: { code, message } }
-    if (typeof cuerpo?.error?.message === 'string') return cuerpo.error.message;
+    cuerpo = (await respuesta.json()) as ErrorDto;
   } catch {
     // Un cuerpo que no es JSON no es motivo para perder el codigo de estado.
+    // Pasa, por ejemplo, con un 502 que pone el proxy y no la aplicacion.
   }
-  return `La peticion fallo con un ${respuesta.status}`;
+
+  const error = cuerpo?.error;
+  if (!error) {
+    return new ApiError(respuesta.status, `La peticion fallo con un ${respuesta.status}`);
+  }
+
+  const fieldErrors: Record<string, string> = {};
+  for (const detalle of error.details ?? []) {
+    // Los detalles sin campo (una regla que mira varios a la vez) no van al
+    // formulario: ya estan dichos en el mensaje general.
+    if (detalle.field) fieldErrors[detalle.field] = detalle.message;
+  }
+
+  return new ApiError(respuesta.status, error.message, error.code, fieldErrors, error.request_id);
 }

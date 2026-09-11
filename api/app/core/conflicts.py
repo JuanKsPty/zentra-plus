@@ -83,3 +83,30 @@ def describir(error: BaseException) -> dict[str, str | None]:
         # PostgreSQL escribe los valores de la fila.
         "primary": getattr(diagnostico, "message_primary", None) if diagnostico else None,
     }
+
+
+def traducir(
+    error: BaseException,
+    por_restriccion: dict[str, tuple[str, str]],
+    *,
+    por_defecto: tuple[str, str] = (
+        "conflicto",
+        "Ya existe algo con esos datos.",
+    ),
+) -> tuple[str, str]:
+    """
+    Convierte una violacion de integridad en un error de negocio.
+
+    Se intenta primero por NOMBRE de restriccion, que es lo que permite dar un
+    mensaje concreto («ya hay una mesa 7 aqui») en vez de uno generico. Pero el
+    nombre solo lo da PostgreSQL: SQLite no expone diagnostico, asi que en las
+    pruebas en memoria no hay forma de saber cual choco.
+
+    Por eso hay un caso por defecto. Sin el, la misma carrera que en PostgreSQL
+    sale como un 409 legible saldria como un 500 en cualquier otro motor — y un
+    500 es, ademas, un fallo definitivo para una cola de reenvios.
+    """
+    nombre = restriccion_violada(error)
+    if nombre and nombre in por_restriccion:
+        return por_restriccion[nombre]
+    return por_defecto

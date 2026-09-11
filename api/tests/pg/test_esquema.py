@@ -129,3 +129,53 @@ def test_las_fechas_conservan_la_zona(base_vacia: Session) -> None:
     assert leida.created_at.tzinfo is not None
     assert leida.created_at <= datetime.now(UTC)
     assert uuid4() != leida.id
+
+
+def test_el_numero_de_mesa_es_unico_POR_SUCURSAL(base_vacia: Session) -> None:
+    """
+    La unicidad que cambio al pasar a multisucursal.
+
+    En LoklFlow el numero era unico global, asi que la segunda sede no podia
+    tener una «mesa 1». Aqui las dos pueden, y dos mesas 1 en la MISMA sede no.
+    """
+    from app.models import RestaurantTable, Sector
+
+    sedes = [Branch(name="Principal", code="PRIN"), Branch(name="Norte", code="NOR")]
+    base_vacia.add_all(sedes)
+    base_vacia.commit()
+    for sede in sedes:
+        base_vacia.refresh(sede)
+
+    zonas = [Sector(branch_id=sede.id, name="Interior") for sede in sedes]
+    base_vacia.add_all(zonas)
+    base_vacia.commit()
+    for zona in zonas:
+        base_vacia.refresh(zona)
+
+    # Una mesa 1 en cada sede: permitido.
+    for sede, zona in zip(sedes, zonas, strict=True):
+        base_vacia.add(RestaurantTable(branch_id=sede.id, sector_id=zona.id, number=1))
+    base_vacia.commit()
+
+    # Una segunda mesa 1 en la misma sede: no.
+    base_vacia.add(RestaurantTable(branch_id=sedes[0].id, sector_id=zonas[0].id, number=1))
+    with pytest.raises(IntegrityError) as excinfo:
+        base_vacia.commit()
+    base_vacia.rollback()
+
+    # Y llega con el NOMBRE del indice, que es lo que permite dar el mensaje
+    # concreto. SQLite no expone esto, asi que solo se puede comprobar aqui.
+    assert restriccion_violada(excinfo.value) == "uq_tables_numero_por_sucursal"
+
+
+def test_una_estacion_inventada_no_entra_ni_por_sql(base_vacia: Session) -> None:
+    """El CHECK que se escribio a mano: el autogenerate no los genera."""
+    from app.models import Product
+
+    base_vacia.add(Product(name="Cafe", price=Decimal("1.50"), station="terraza"))
+
+    with pytest.raises(IntegrityError) as excinfo:
+        base_vacia.commit()
+    base_vacia.rollback()
+
+    assert restriccion_violada(excinfo.value) == "ck_products_estacion"

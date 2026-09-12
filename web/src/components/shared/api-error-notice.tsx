@@ -1,36 +1,40 @@
-import { ApiError, NetworkError } from '@/services/http';
+import { describirFallo } from '@/lib/errores';
 
 /**
  * Lo que se pinta cuando una pantalla no pudo cargar.
  *
- * «No hay red» y «el servidor contesto que no» NO se dicen igual, porque llevan
- * a acciones distintas: lo primero se arregla mirando el router del local, lo
- * segundo no. Si las dos salen como «Error», el encargado no sabe a quien
- * llamar.
+ * NO se pinta una lista vacia. Un listado sin datos y un listado que no cargo
+ * se ven igual, y asi es como un mesero ve «no hay comandas» cuando lo que hay
+ * es un cable suelto. Las dos lecturas llevan a acciones opuestas: una es
+ * esperar, la otra es ir a mirar el router.
  *
- * Y sobre todo: NO se pinta una lista vacia. Un listado sin datos y un listado
- * que no cargo se ven igual, y asi es como un mesero ve «no hay comandas»
- * cuando lo que hay es un cable suelto.
+ * QUE dice cada fallo no se decide aqui: se decide en `lib/errores.ts`, que es
+ * el mismo sitio del que salen los avisos flotantes de los botones. Esta pieza
+ * solo lo pinta, para que la pantalla y el toast no puedan contar dos versiones
+ * distintas del mismo corte de red.
  */
 export function AvisoDeFallo({ error }: { error: unknown }) {
-  const sinRed = error instanceof NetworkError;
-  const texto = sinRed
-    ? 'No hay conexion con el servidor. Comprueba la red del local.'
-    : error instanceof ApiError
-      ? error.message
-      : 'No se pudo cargar esta pantalla.';
+  const fallo = describirFallo(error);
+
+  // Ninguna pantalla deberia llegar aqui con otra cosa —todas comprueban
+  // `esFalloDeApi` antes—, pero si pasa se relanza en vez de inventar un texto:
+  // lo recoge `error.tsx`, con su traza y su «Reintentar».
+  if (!fallo) throw error;
 
   return (
     <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-5 py-4">
-      <p className="text-sm font-medium text-destructive">
-        {sinRed ? 'Sin conexion' : 'El servidor no respondio'}
+      <p className="text-sm font-medium text-destructive">{fallo.titulo}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {fallo.pista ? `${fallo.mensaje} ${fallo.pista}` : fallo.mensaje}
       </p>
-      <p className="mt-1 text-sm text-muted-foreground">{texto}</p>
+      {/* La referencia es lo unico que enlaza esta pantalla con la linea del
+          log del servidor. En produccion el mensaje puede ser generico; esto
+          no. */}
+      {fallo.referencia && (
+        <p className="mt-2 font-mono text-xs text-muted-foreground">
+          Referencia: {fallo.referencia}
+        </p>
+      )}
     </div>
   );
-}
-
-/** Para los `catch` de las pantallas: relanza lo que no es un fallo de la API. */
-export function esFalloDeApi(error: unknown): boolean {
-  return error instanceof ApiError || error instanceof NetworkError;
 }

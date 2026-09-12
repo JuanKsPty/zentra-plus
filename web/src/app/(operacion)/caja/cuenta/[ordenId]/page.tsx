@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
-import { AvisoDeFallo, esFalloDeApi } from '@/components/shared/api-error-notice';
+import { AvisoDeFallo } from '@/components/shared/api-error-notice';
+import { esFalloDeApi } from '@/lib/errores';
 import { PantallaDeCobro } from '@/components/caja/checkout';
 import { ApiError } from '@/services/http';
 import { estadoDeCobro, metodosDeCobro, turnoActual } from '@/services/cashService.server';

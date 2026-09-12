@@ -1,5 +1,6 @@
 import { CabeceraDePagina } from '@/components/shared/page-header';
-import { AvisoDeFallo, esFalloDeApi } from '@/components/shared/api-error-notice';
+import { AvisoDeFallo } from '@/components/shared/api-error-notice';
+import { esFalloDeApi } from '@/lib/errores';
 import { SinNada } from '@/components/shared/empty-state';
 import { TablaDeProductos } from '@/components/panel/product-table';
 import { FiltroDeCarta } from '@/components/panel/catalog-filter';

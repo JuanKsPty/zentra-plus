@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
-import { AvisoDeFallo, esFalloDeApi } from '@/components/shared/api-error-notice';
+import { AvisoDeFallo } from '@/components/shared/api-error-notice';
+import { esFalloDeApi } from '@/lib/errores';
 import { SinNada } from '@/components/shared/empty-state';
 import { ArmarComanda } from '@/components/salon/order-builder';
 import { listarCategorias, listarProductos } from '@/services/catalogService';

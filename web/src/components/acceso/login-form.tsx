@@ -4,14 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { reportar } from '@/lib/errores';
 import { z } from '@/lib/validations/zod';
-import { ApiError, NetworkError } from '@/services/http';
 import { entrarConCorreo } from '@/services/authService';
 
 const esquema = z.object({
@@ -36,14 +35,9 @@ export function FormularioDeAcceso() {
       await entrarConCorreo(valores.email, valores.password);
     } catch (error) {
       // «No hay red» y «esas credenciales no valen» llevan a acciones
-      // distintas: lo primero se arregla mirando el router del local.
-      if (error instanceof NetworkError) {
-        toast.error('No hay conexion con el servidor.');
-      } else if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        throw error;
-      }
+      // distintas: lo primero se arregla mirando el router del local. Quien lo
+      // separa es `reportar`, en un solo sitio para todo el web.
+      reportar(error, 'No se pudo entrar.');
       return;
     }
 

@@ -1,4 +1,5 @@
-import { AvisoDeFallo, esFalloDeApi } from '@/components/shared/api-error-notice';
+import { AvisoDeFallo } from '@/components/shared/api-error-notice';
+import { esFalloDeApi } from '@/lib/errores';
 import { CabeceraDePagina } from '@/components/shared/page-header';
 import { SinNada } from '@/components/shared/empty-state';
 import { MapaDelSalon } from '@/components/panel/floor-map';

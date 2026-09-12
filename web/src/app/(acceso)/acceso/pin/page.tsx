@@ -1,7 +1,8 @@
 import Link from 'next/link';
 
+import { AvisoDeFallo } from '@/components/shared/api-error-notice';
 import { Button } from '@/components/ui/button';
-import { ApiError, NetworkError } from '@/services/http';
+import { esFalloDeApi } from '@/lib/errores';
 import { listarOperativos } from '@/services/usersService';
 
 export const metadata = { title: 'Entrar con PIN · Zentra+' };
@@ -19,16 +20,23 @@ export default async function ElegirQuienEres() {
   try {
     personas = await listarOperativos();
   } catch (error) {
-    const sinRed = error instanceof NetworkError;
-    if (!sinRed && !(error instanceof ApiError)) throw error;
+    if (!esFalloDeApi(error)) throw error;
+    // Una rejilla vacia aqui se lee como «ya no trabajo aqui». El aviso es el
+    // mismo que en el resto del web, y por el mismo motivo: «no hay nadie con
+    // PIN» y «no pudimos preguntar» llevan a acciones opuestas.
     return (
-      <Aviso
-        texto={
-          sinRed
-            ? 'No hay conexion con el servidor. Comprueba la red del local.'
-            : 'El servidor no pudo dar la lista. Intenta de nuevo en un momento.'
-        }
-      />
+      <div className="w-full max-w-sm space-y-4">
+        <AvisoDeFallo error={error} />
+        <Button
+          variant="outline"
+          size="touch"
+          className="w-full"
+          nativeButton={false}
+          render={<Link href="/acceso" />}
+        >
+          Entrar con correo
+        </Button>
+      </div>
     );
   }
 

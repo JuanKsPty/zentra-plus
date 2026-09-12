@@ -3,11 +3,10 @@
 import { DeleteIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { ApiError, NetworkError } from '@/services/http';
+import { reportar } from '@/lib/errores';
 import { entrarConPin } from '@/services/authService';
 
 const LARGO = 4;
@@ -33,14 +32,8 @@ export function TecladoDePin({ empleadoId, nombre }: { empleadoId: string; nombr
       router.refresh();
     } catch (error) {
       setPin('');
-      if (error instanceof NetworkError) {
-        toast.error('No hay conexion con el servidor.');
-      } else if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        throw error;
-      }
       setEnviando(false);
+      reportar(error, 'No se pudo entrar.');
     }
   }
 

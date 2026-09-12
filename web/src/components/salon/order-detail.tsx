@@ -2,12 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dinero } from '@/components/shared/money';
-import { ApiError, NetworkError } from '@/services/http';
+import { reportar } from '@/lib/errores';
 import { moverEstado, type Comanda } from '@/services/ordersService';
 
 const ETIQUETAS: Record<string, string> = {
@@ -54,9 +53,7 @@ export function DetalleDeComanda({ comanda }: { comanda: Comanda }) {
       await moverEstado(comanda.id, estado);
       router.refresh();
     } catch (error) {
-      if (error instanceof NetworkError) toast.error('No hay conexion con el servidor.');
-      else if (error instanceof ApiError) toast.error(error.message);
-      else throw error;
+      reportar(error, `La cuenta #${comanda.numero} sigue como estaba.`);
     } finally {
       setEnviando(null);
     }

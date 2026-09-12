@@ -10,9 +10,9 @@ import { Dinero } from '@/components/shared/money';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { deLaApi, formatearDinero } from '@/lib/money';
+import { reportar } from '@/lib/errores';
 import { cn } from '@/lib/utils';
 import { cobrar, type EstadoDeCobro } from '@/services/cashService';
-import { ApiError, NetworkError } from '@/services/http';
 import type { Comanda } from '@/services/ordersService';
 
 export function PantallaDeCobro({
@@ -50,9 +50,9 @@ export function PantallaDeCobro({
       }
       router.refresh();
     } catch (error) {
-      if (error instanceof NetworkError) toast.error('No hay conexion con el servidor.');
-      else if (error instanceof ApiError) toast.error(error.message);
-      else throw error;
+      // El cobro es donde mas duele no saber si entro: el aviso dice que NO se
+      // registro, para que el cajero no lo de por hecho ni lo cobre dos veces.
+      reportar(error, 'El cobro NO se registro.');
     } finally {
       setEnviando(false);
     }

@@ -1,4 +1,5 @@
-import { AvisoDeFallo, esFalloDeApi } from '@/components/shared/api-error-notice';
+import { AvisoDeFallo } from '@/components/shared/api-error-notice';
+import { esFalloDeApi } from '@/lib/errores';
 import { ControlDeCaja } from '@/components/caja/shift-control';
 import { arqueoDe, turnoActual } from '@/services/cashService.server';
 

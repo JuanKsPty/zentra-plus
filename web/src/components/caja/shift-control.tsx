@@ -9,7 +9,7 @@ import { Dinero } from '@/components/shared/money';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { deLaApi } from '@/lib/money';
-import { ApiError, NetworkError } from '@/services/http';
+import { reportar } from '@/lib/errores';
 import { abrirTurno, cerrarTurno, type Arqueo, type Turno } from '@/services/cashService';
 
 const ETIQUETAS: Record<string, string> = {
@@ -44,9 +44,7 @@ export function ControlDeCaja({ turno, arqueo }: { turno: Turno | null; arqueo: 
       router.refresh();
     } catch (error) {
       setEnviando(false);
-      if (error instanceof NetworkError) toast.error('No hay conexion con el servidor.');
-      else if (error instanceof ApiError) toast.error(error.message);
-      else throw error;
+      reportar(error, turno ? 'La caja NO se cerro.' : 'La caja NO se abrio.');
     }
   }
 

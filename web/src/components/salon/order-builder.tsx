@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dinero } from '@/components/shared/money';
 import { cn } from '@/lib/utils';
-import { ApiError, NetworkError } from '@/services/http';
+import { reportar } from '@/lib/errores';
 import type { Categoria, Producto } from '@/services/catalogService';
 import { tomarComanda } from '@/services/ordersService';
 
@@ -77,9 +77,9 @@ export function ArmarComanda({
       router.refresh();
     } catch (error) {
       setEnviando(false);
-      if (error instanceof NetworkError) toast.error('No hay conexion con el servidor.');
-      else if (error instanceof ApiError) toast.error(error.message);
-      else throw error;
+      // Lo que se armo NO se pierde: el estado sigue en pantalla y se puede
+      // reenviar. Decirlo evita que el mesero la teclee otra vez desde cero.
+      reportar(error, 'La comanda NO llego a cocina. Vuelve a enviarla.');
     }
   }
 

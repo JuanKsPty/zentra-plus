@@ -1,4 +1,5 @@
-import { AvisoDeFallo, esFalloDeApi } from '@/components/shared/api-error-notice';
+import { AvisoDeFallo } from '@/components/shared/api-error-notice';
+import { esFalloDeApi } from '@/lib/errores';
 import { Refrescador } from '@/components/realtime/realtime-refresher';
 import { SinNada } from '@/components/shared/empty-state';
 import { Tablero } from '@/components/cocina/kds-board';

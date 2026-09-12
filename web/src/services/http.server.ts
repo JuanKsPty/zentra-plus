@@ -45,16 +45,22 @@ export async function apiFetchServidor<T>(path: string, opciones: RequestInit = 
   if (!respuesta.ok) {
     let mensaje = `La peticion fallo con un ${respuesta.status}`;
     let codigo = 'error';
+    // El identificador de la peticion llega hasta la pantalla A PROPOSITO: lo
+    // que falla al renderizar no deja rastro en la pestana de red del
+    // navegador, asi que esa referencia es lo unico que enlaza lo que vio el
+    // operario con la linea del log de la API.
+    let identificador: string | null = null;
     try {
       const cuerpo = await respuesta.json();
       if (cuerpo?.error?.message) {
         mensaje = cuerpo.error.message;
         codigo = cuerpo.error.code ?? codigo;
       }
+      identificador = cuerpo?.error?.request_id ?? null;
     } catch {
       // Un cuerpo que no es JSON no es motivo para perder el codigo de estado.
     }
-    throw new ApiError(respuesta.status, mensaje, codigo);
+    throw new ApiError(respuesta.status, mensaje, codigo, {}, identificador);
   }
 
   if (respuesta.status === 204) return undefined as T;

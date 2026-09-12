@@ -113,12 +113,22 @@ token». No hizo falta — el canal nunca existió sin comprobarlo. El que sí a
 
 > El cajero cobra y el turno cuadra.
 
-- [ ] Cobro con pagos divididos, propina y liberación de la mesa
-- [ ] Turnos de caja con arqueo
-- [ ] Venta de mostrador en una sola petición
+- [x] Cobro con pagos divididos, propina y liberación de la mesa
+- [x] Turnos de caja con arqueo
+- [x] Venta de mostrador en una sola petición
+- [x] Pantallas de caja: cuentas por cobrar, cobro y control de turno
 
-**Se demuestra:** abrir turno, cobrar una cuenta en dos pagos con propina, hacer una venta de
-mostrador, cerrar turno y comprobar que la diferencia del arqueo es cero.
+**Se demuestra:** abrir turno con fondo, vender en mostrador, cobrar una cuenta en dos pagos, y
+ver que el arqueo dice exactamente lo que hay en el cajón.
+
+*Cambió sobre el plan:* los dos commits de arreglo previstos —el doble clic que abría dos
+turnos y el pago parcial reenviado— no hicieron falta. Los dos índices parciales estaban desde
+el primer commit, así que el bug nunca existió; escribirlo para luego arreglarlo habría sido
+teatro. Las pruebas que los cubren sí están, y una de ellas usa ocho hilos contra PostgreSQL.
+
+*El arreglo que sí apareció fue otro, y lo encontró su propia prueba:* una venta de mostrador
+vacía creaba la comanda y reventaba después al cobrar cero, dejando exactamente la venta
+huérfana que ese endpoint existe para no dejar nunca.
 
 ## Fase 5 — Existencias, panel y reportes
 

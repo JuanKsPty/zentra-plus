@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from app.api.routes import (
     auth,
     business_config,
+    cash,
     catalog,
     events,
     floor,
@@ -32,5 +33,6 @@ protegido.include_router(catalog.router)
 protegido.include_router(floor.router)
 protegido.include_router(orders.router)
 protegido.include_router(events.router)
+protegido.include_router(cash.router)
 
 api_router.include_router(protegido)

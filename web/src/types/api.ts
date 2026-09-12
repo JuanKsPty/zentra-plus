@@ -129,6 +129,45 @@ export interface ComandaDto {
   items: LineaDto[];
 }
 
+export interface TurnoDto {
+  id: string;
+  opened_by: string;
+  opened_at: string;
+  closed_at: string | null;
+  opening_cash: string;
+  closing_cash: string | null;
+  status: string;
+  notes: string | null;
+}
+
+export interface CobroDto {
+  id: string;
+  method: string;
+  amount: string;
+  reference: string | null;
+  processed_at: string;
+}
+
+export interface EstadoDeCobroDto {
+  order_id: string;
+  total: string;
+  paid: string;
+  due: string;
+  is_settled: boolean;
+  payments: CobroDto[];
+}
+
+export interface ArqueoDto {
+  shift: TurnoDto;
+  by_method: Record<string, string>;
+  total_sold: string;
+  cash_sold: string;
+  expected_cash: string;
+  counted_cash: string | null;
+  difference: string | null;
+  payments_count: number;
+}
+
 export interface SaludDto {
   status: string;
   app: string;

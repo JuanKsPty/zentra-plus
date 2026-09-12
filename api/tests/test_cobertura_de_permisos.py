@@ -43,11 +43,6 @@ PUBLICAS = {
 # exigir un permiso para leer tu propia sesion no significaria nada.
 SOLO_SESION = {
     ("GET", "/api/auth/me"),
-    # El pase para abrir el canal de avisos. No exige permiso propio porque no
-    # concede nada: copia en el ticket los permisos que la sesion YA tiene, y el
-    # socket decide con ellos a que canales suscribe. Exigir uno aparte seria un
-    # permiso que habria que acordarse de dar a todo el mundo.
-    ("POST", "/api/auth/ws-ticket"),
 }
 
 # Las rutas que montan otros archivos de pruebas para ejercitar los manejadores.

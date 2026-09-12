@@ -4,12 +4,12 @@ from app.api.routes import (
     auth,
     business_config,
     catalog,
+    events,
     floor,
     health,
     orders,
     roles,
     users,
-    ws,
 )
 from app.core.deps import sesion_requerida
 
@@ -21,10 +21,6 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 # La rejilla del teclado de PIN: hay que verla ANTES de tener sesion.
 api_router.include_router(users.router_publico)
-# El canal de avisos se autentica con su propio ticket, no con la sesion: el
-# WebSocket del navegador no admite cabeceras. Por eso NO cuelga del router
-# protegido.
-api_router.include_router(ws.router)
 
 # Todo lo demas nace autenticado: la sesion se exige en el router padre, asi que
 # un modulo nuevo no puede quedar abierto por olvidar una dependencia.
@@ -35,5 +31,6 @@ protegido.include_router(business_config.router)
 protegido.include_router(catalog.router)
 protegido.include_router(floor.router)
 protegido.include_router(orders.router)
+protegido.include_router(events.router)
 
 api_router.include_router(protegido)

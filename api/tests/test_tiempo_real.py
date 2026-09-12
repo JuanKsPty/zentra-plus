@@ -1,21 +1,17 @@
 import asyncio
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
-import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.core import permissions as P
-from app.core.security import firmar_acceso, firmar_ticket, leer_ticket
+from app.api.routes.events import _emitir
 from app.models import Branch
 from app.realtime import throttle
 from app.realtime.events import sobre
-from app.realtime.hub import Hub
-from tests.factories import cookie_con, crear_sucursal
-
-MESERO = [P.ORDERS_READ, P.ORDERS_WRITE, P.FLOOR_READ, P.CATALOG_READ]
+from app.realtime.hub import COLA_MAXIMA, Hub
+from tests.factories import crear_sucursal
 
 SEDE_A = UUID("11111111-1111-4111-8111-111111111111")
 SEDE_B = UUID("22222222-2222-4222-8222-222222222222")
@@ -31,197 +27,81 @@ def sede_fixture(session: Session) -> Branch:
     return crear_sucursal(session)
 
 
-# --- el ticket --------------------------------------------------------------
-
-
-def test_el_ticket_copia_los_permisos_de_la_sesion(client: TestClient, sede: Branch) -> None:
-    client.cookies.update(cookie_con(MESERO, branch_id=sede.id))
-
-    ticket = client.post("/api/auth/ws-ticket").json()["ticket"]
-
-    carga = leer_ticket(ticket)
-    assert carga["branch_id"] == str(sede.id)
-    assert set(carga["permissions"]) == set(MESERO)
-
-
-def test_el_ticket_caduca_enseguida(client: TestClient, sede: Branch) -> None:
-    """
-    Treinta segundos: lo justo para pedirlo y abrir el socket.
-
-    Va en la URL, asi que puede acabar en un log de acceso o en el historial del
-    navegador. Que caduque enseguida es lo que hace que eso no importe.
-    """
-    client.cookies.update(cookie_con(MESERO, branch_id=sede.id))
-
-    carga = leer_ticket(client.post("/api/auth/ws-ticket").json()["ticket"])
-
-    assert carga["exp"] - carga["iat"] == 30
-
-
-def test_un_token_de_sesion_NO_vale_como_ticket() -> None:
-    """
-    Sin esta comprobacion, el token de acceso —que dura horas— serviria para
-    abrir sockets, y el ticket no habria servido para nada.
-    """
-    acceso = firmar_acceso(
-        {"sub": str(uuid4()), "name": "T", "branch_id": str(SEDE_A), "permissions": MESERO},
-        "email",
-    )
-
-    with pytest.raises(jwt.InvalidTokenError):
-        leer_ticket(acceso)
-
-
-def test_pedir_un_ticket_necesita_sesion(client: TestClient) -> None:
-    assert client.post("/api/auth/ws-ticket").status_code == 401
-
-
-# --- el canal ---------------------------------------------------------------
-
-
-def test_el_canal_suscribe_segun_los_permisos(client: TestClient, sede: Branch) -> None:
-    """Un cocinero no tiene por que enterarse de los movimientos de caja."""
-    ticket = firmar_ticket(
-        {"sub": str(uuid4()), "branch_id": str(sede.id), "permissions": [P.ORDERS_READ]}
-    )
-
-    with client.websocket_connect(f"/api/ws?ticket={ticket}") as socket:
-        bienvenida = socket.receive_json()
-
-    assert bienvenida["tipo"] == "conectado"
-    assert bienvenida["canales"] == ["orders"]
-
-
-def test_quien_puede_verlo_todo_recibe_los_tres_canales(client: TestClient, sede: Branch) -> None:
-    ticket = firmar_ticket(
-        {
-            "sub": str(uuid4()),
-            "branch_id": str(sede.id),
-            "permissions": [P.ORDERS_READ, P.FLOOR_READ, P.CASH_READ],
-        }
-    )
-
-    with client.websocket_connect(f"/api/ws?ticket={ticket}") as socket:
-        assert set(socket.receive_json()["canales"]) == {"orders", "floor", "cash"}
-
-
-def test_el_ping_se_contesta(client: TestClient, sede: Branch) -> None:
-    """
-    Un socket puede quedarse «abierto» y muerto tras un cambio de WiFi. El unico
-    modo de notarlo es que deje de contestar.
-    """
-    ticket = firmar_ticket(
-        {"sub": str(uuid4()), "branch_id": str(sede.id), "permissions": [P.ORDERS_READ]}
-    )
-
-    with client.websocket_connect(f"/api/ws?ticket={ticket}") as socket:
-        socket.receive_json()
-        socket.send_text("ping")
-        assert socket.receive_json() == {"tipo": "pong"}
-
-
-@pytest.mark.parametrize(
-    ("ticket", "codigo"),
-    [("basura", 4401), ("", 4401)],
-)
-def test_sin_ticket_valido_se_cierra_con_codigo(
-    client: TestClient, ticket: str, codigo: int
-) -> None:
-    """
-    Se acepta la conexion y LUEGO se cierra con motivo.
-
-    Rechazando el handshake a secas, el navegador solo ve «connection failed» y
-    el cliente no puede distinguir «pide otro ticket» de «no insistas».
-    """
-    from starlette.websockets import WebSocketDisconnect
-
-    with (
-        pytest.raises(WebSocketDisconnect) as excinfo,
-        client.websocket_connect(f"/api/ws?ticket={ticket}") as socket,
-    ):
-        socket.receive_json()
-
-    assert excinfo.value.code == codigo
-
-
-def test_sin_ningun_canal_no_se_deja_la_conexion_abierta(client: TestClient, sede: Branch) -> None:
-    """Un socket que no puede recibir nada solo gasta una conexion."""
-    from starlette.websockets import WebSocketDisconnect
-
-    ticket = firmar_ticket({"sub": str(uuid4()), "branch_id": str(sede.id), "permissions": []})
-
-    with (
-        pytest.raises(WebSocketDisconnect) as excinfo,
-        client.websocket_connect(f"/api/ws?ticket={ticket}") as socket,
-    ):
-        socket.receive_json()
-
-    assert excinfo.value.code == 4403
+def _evento(branch_id: UUID = SEDE_A) -> dict:
+    return sobre("order.created", branch_id, orderId="x", orderNumber=1)
 
 
 # --- el reparto -------------------------------------------------------------
 
 
-class SocketFalso:
-    """Lo justo para saber que recibio. Montar uno real no anade nada aqui."""
-
-    def __init__(self, *, roto: bool = False) -> None:
-        self.recibidos: list[dict] = []
-        self.roto = roto
-
-    async def send_json(self, datos: dict) -> None:
-        if self.roto:
-            raise RuntimeError("socket muerto")
-        self.recibidos.append(datos)
-
-
-def _evento(branch_id: UUID) -> dict:
-    return sobre("order.created", branch_id, orderId="x", orderNumber=1)
-
-
-def test_el_aviso_llega_a_los_suscritos_de_esa_sucursal() -> None:
+def test_el_aviso_llega_a_quien_escucha_esa_sucursal() -> None:
     hub = Hub()
-    aqui, alla = SocketFalso(), SocketFalso()
-    hub.suscribir(aqui, SEDE_A, ["orders"])  # type: ignore[arg-type]
-    hub.suscribir(alla, SEDE_B, ["orders"])  # type: ignore[arg-type]
+    aqui = hub.suscribir(SEDE_A, ["orders"])
+    alla = hub.suscribir(SEDE_B, ["orders"])
 
-    asyncio.run(hub.publicar(_evento(SEDE_A)))
+    hub.publicar(_evento(SEDE_A))
 
-    assert len(aqui.recibidos) == 1
+    assert aqui.cola.qsize() == 1
     # El tablero del norte no puede llenarse con comandas de la principal.
-    assert alla.recibidos == []
+    assert alla.cola.qsize() == 0
 
 
 def test_el_aviso_solo_va_a_su_canal() -> None:
+    """Un cocinero no tiene por que enterarse de los movimientos de caja."""
     hub = Hub()
-    solo_caja = SocketFalso()
-    hub.suscribir(solo_caja, SEDE_A, ["cash"])  # type: ignore[arg-type]
+    solo_caja = hub.suscribir(SEDE_A, ["cash"])
 
-    asyncio.run(hub.publicar(_evento(SEDE_A)))
+    hub.publicar(_evento(SEDE_A))
 
-    assert solo_caja.recibidos == []
+    assert solo_caja.cola.qsize() == 0
 
 
-def test_un_socket_muerto_no_impide_que_los_demas_se_enteren() -> None:
-    """Y se descarta: el cliente reconectara por su cuenta."""
+def test_quien_escucha_varios_canales_recibe_una_vez_por_evento() -> None:
     hub = Hub()
-    muerto, vivo = SocketFalso(roto=True), SocketFalso()
-    hub.suscribir(muerto, SEDE_A, ["orders"])  # type: ignore[arg-type]
-    hub.suscribir(vivo, SEDE_A, ["orders"])  # type: ignore[arg-type]
+    todo = hub.suscribir(SEDE_A, ["orders", "floor", "cash"])
 
-    asyncio.run(hub.publicar(_evento(SEDE_A)))
+    hub.publicar(_evento(SEDE_A))
 
-    assert len(vivo.recibidos) == 1
-    assert hub.conectados(SEDE_A, "orders") == 1
+    assert todo.cola.qsize() == 1
+
+
+def test_al_desuscribir_deja_de_recibir() -> None:
+    """
+    Se llama al cerrar la pestana. Sin esto, cada recarga dejaria una
+    suscripcion huerfana acumulando avisos que nadie lee.
+    """
+    hub = Hub()
+    suscripcion = hub.suscribir(SEDE_A, ["orders"])
+
+    hub.desuscribir(suscripcion)
+    hub.publicar(_evento(SEDE_A))
+
+    assert suscripcion.cola.qsize() == 0
+    assert hub.escuchando(SEDE_A, "orders") == 0
+
+
+def test_un_cliente_que_no_lee_no_hace_crecer_la_memoria() -> None:
+    """
+    La cola tiene tope y se tiran los MAS VIEJOS.
+
+    Como el evento es una senal —«mira otra vez»— perder los intermedios no
+    pierde informacion: leyendo el ultimo, el cliente se pone al dia igual.
+    """
+    hub = Hub()
+    dormido = hub.suscribir(SEDE_A, ["orders"])
+
+    for _ in range(COLA_MAXIMA + 50):
+        hub.publicar(_evento(SEDE_A))
+
+    assert dormido.cola.qsize() == COLA_MAXIMA
 
 
 def test_publicar_sin_bucle_no_revienta() -> None:
     """
     Es lo que pasa en las pruebas y en cualquier script que importe el servicio.
-
     Que un aviso no salga no puede hacer fallar el cobro que lo genero.
     """
-    Hub().publicar_desde_hilo(_evento(SEDE_A))
+    Hub().publicar_desde_hilo(_evento())
 
 
 def test_el_sobre_lleva_siempre_los_mismos_campos() -> None:
@@ -237,25 +117,106 @@ def test_el_sobre_lleva_siempre_los_mismos_campos() -> None:
     assert datetime.fromisoformat(evento["emitidoEn"]) <= datetime.now(UTC)
 
 
+# --- el canal ---------------------------------------------------------------
+
+
+def test_el_canal_necesita_sesion(client: TestClient) -> None:
+    assert client.get("/api/events").status_code == 401
+
+
+def test_el_flujo_empieza_diciendo_a_que_esta_suscrito() -> None:
+    """
+    Se prueba el generador EN DIRECTO y no a traves del cliente de pruebas.
+
+    Un flujo de SSE no termina nunca por diseno, asi que leerlo desde el cliente
+    de pruebas bloquea el hilo y la suite se cuelga — pasa de verdad, y cuesta
+    entender porque el sintoma es «pytest no responde». Aqui se pide el primer
+    trozo y se cierra.
+    """
+
+    async def primer_trozo() -> str:
+        flujo = _emitir(Hub().suscribir(SEDE_A, ["orders", "floor"]), ["orders", "floor"])
+        try:
+            return await anext(flujo)
+        finally:
+            await flujo.aclose()
+
+    primera = asyncio.run(primer_trozo())
+
+    assert primera.startswith("data: ")
+    assert '"tipo": "conectado"' in primera
+    assert '"orders"' in primera and '"floor"' in primera
+    # Dos saltos de linea cierran un evento de SSE. Sin ellos el navegador se
+    # queda esperando y no entrega nada.
+    assert primera.endswith("\n\n")
+
+
+def test_el_flujo_entrega_los_avisos_que_llegan() -> None:
+    async def dos_trozos() -> list[str]:
+        hub = Hub()
+        suscripcion = hub.suscribir(SEDE_A, ["orders"])
+        flujo = _emitir(suscripcion, ["orders"])
+        await anext(flujo)  # la bienvenida
+        hub.publicar(_evento(SEDE_A))
+        try:
+            return [await anext(flujo)]
+        finally:
+            await flujo.aclose()
+
+    (aviso,) = asyncio.run(dos_trozos())
+
+    assert '"tipo": "order.created"' in aviso
+    assert '"orderNumber": 1' in aviso
+
+
+def test_al_cerrar_el_flujo_se_suelta_la_suscripcion() -> None:
+    """
+    Se ejecuta tambien cuando el cliente cierra la pestana. Sin esto, cada
+    recarga dejaria una suscripcion huerfana acumulando avisos que nadie lee.
+    """
+
+    async def abrir_y_cerrar() -> int:
+        from app.realtime.hub import hub as global_hub
+
+        suscripcion = global_hub.suscribir(SEDE_A, ["orders"])
+        flujo = _emitir(suscripcion, ["orders"])
+        await anext(flujo)
+        await flujo.aclose()
+        return global_hub.escuchando(SEDE_A, "orders")
+
+    assert asyncio.run(abrir_y_cerrar()) == 0
+
+
+def test_la_cola_entrega_en_orden() -> None:
+    async def comprobar() -> list[int]:
+        hub = Hub()
+        suscripcion = hub.suscribir(SEDE_A, ["orders"])
+        for numero in range(3):
+            hub.publicar(sobre("order.created", SEDE_A, orderNumber=numero))
+        return [(await suscripcion.cola.get())["payload"]["orderNumber"] for _ in range(3)]
+
+    assert asyncio.run(comprobar()) == [0, 1, 2]
+
+
 # --- el throttle del log ----------------------------------------------------
 
 
 def test_los_rechazos_repetidos_solo_se_registran_una_vez() -> None:
     """
-    Una tableta olvidada en la barra con el token caducado reconecta cada pocos
+    Una tableta olvidada en la barra con la sesion caducada reintenta cada pocos
     segundos PARA SIEMPRE: decenas de miles de lineas identicas por noche que
     tapan cualquier cosa que si importe.
     """
-    assert throttle.deberia_registrar("ws:1.2.3.4", ahora=0.0) is True
-    assert throttle.deberia_registrar("ws:1.2.3.4", ahora=5.0) is False
-    assert throttle.deberia_registrar("ws:1.2.3.4", ahora=61.0) is True
+    assert throttle.deberia_registrar("sse:1.2.3.4", ahora=0.0) is True
+    assert throttle.deberia_registrar("sse:1.2.3.4", ahora=5.0) is False
+    assert throttle.deberia_registrar("sse:1.2.3.4", ahora=61.0) is True
     # Otro origen si se registra: se deduplica la repeticion, no el hecho.
-    assert throttle.deberia_registrar("ws:9.9.9.9", ahora=5.0) is True
+    assert throttle.deberia_registrar("sse:9.9.9.9", ahora=5.0) is True
 
 
 def test_el_throttle_no_crece_sin_limite() -> None:
     """La clave lleva la direccion del cliente, que viene de fuera."""
     for numero in range(throttle.MAXIMO_CLAVES + 200):
-        throttle.deberia_registrar(f"ws:10.0.0.{numero}", ahora=float(numero))
+        throttle.deberia_registrar(f"sse:10.0.0.{numero}", ahora=float(numero))
 
     assert len(throttle._visto) <= throttle.MAXIMO_CLAVES

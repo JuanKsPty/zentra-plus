@@ -83,15 +83,31 @@ galletas, así que `credentials: 'include'` no manda nada y la API respondía 40
 
 > Un mesero toma una comanda y la cocina la ve al instante.
 
-- [ ] Órdenes con máquina de estados e historial
-- [ ] Número de cuenta por sucursal
-- [ ] El identificador lo pone el dispositivo: reenviar no duplica
-- [ ] WebSocket por sucursal
-- [ ] Vista del mesero: salón, comanda y envío a cocina
-- [ ] Tablero de cocina por columnas
+- [x] Órdenes con máquina de estados e historial
+- [x] Número de cuenta por sucursal, sin repetirse ni dejar huecos
+- [x] El identificador lo pone el dispositivo: reenviar no duplica
+- [x] Canal de avisos por sucursal
+- [x] Vista del mesero: salón, tomar comanda y detalle
+- [x] Tablero de cocina por columnas, con cronómetro
+- [ ] Modificadores en la comanda (el modelo está, falta la pantalla)
 
-**Se demuestra:** dos navegadores lado a lado. En uno se envía una comanda; en el otro aparece
-en cocina **sin recargar**.
+**Se demuestra:** se abre el canal, otro cliente toma una comanda, y llegan los dos avisos —la
+comanda y la mesa— sin recargar y por el mismo origen.
+
+*Cambió sobre el plan, y es el cambio más grande de todas las fases:* **el WebSocket no
+atraviesa**. El navegador habla con su propio origen y el servidor de Next reenvía `/api`, pero
+ese reenvío es un route handler y un route handler no puede atravesar el *upgrade* de un
+WebSocket. Con Dockerfiles separados y sin proxy de borde —las dos cosas que este proyecto
+eligió— el socket no llega.
+
+Se cambió el transporte a **SSE**, que es una respuesta HTTP normal y pasa por el mismo camino
+que todo lo demás. Encaja mejor: el evento es una señal, no un canal de datos. Y desaparece el
+pase de un solo uso que el WebSocket necesitaba, porque la cookie viaja como en cualquier
+petición.
+
+*También:* estaba previsto un commit de arreglo para «el canal aceptaba conexiones sin mirar el
+token». No hizo falta — el canal nunca existió sin comprobarlo. El que sí apareció fue otro:
+`/comanda/nueva` la capturaba la ruta dinámica y el mesero veía un 404 al tocar una mesa libre.
 
 ## Fase 4 — Dinero
 

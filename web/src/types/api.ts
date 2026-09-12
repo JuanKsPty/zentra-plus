@@ -99,6 +99,36 @@ export interface MesaDto {
   status: string;
 }
 
+export interface LineaDto {
+  id: string;
+  product_id: string;
+  product_name: string;
+  unit_price: string;
+  station: string;
+  quantity: number;
+  subtotal: string;
+  notes: string | null;
+  status: string;
+}
+
+export interface ComandaDto {
+  id: string;
+  order_number: number;
+  label: string | null;
+  table_id: string | null;
+  table_number: number | null;
+  waiter_id: string | null;
+  source: string;
+  status: string;
+  notes: string | null;
+  subtotal: string;
+  tip_amount: string;
+  total: string;
+  occurred_at: string;
+  created_at: string;
+  items: LineaDto[];
+}
+
 export interface SaludDto {
   status: string;
   app: string;

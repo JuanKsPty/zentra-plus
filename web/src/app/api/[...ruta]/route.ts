@@ -45,17 +45,34 @@ async function proxy(request: NextRequest): Promise<Response> {
 
   const conCuerpo = request.method !== 'GET' && request.method !== 'HEAD';
 
+  // EL CUERPO SE LEE ENTERO ANTES DE REENVIARLO, Y NO ES POR COMODIDAD.
+  //
+  // Esto reenviaba `request.body` en streaming con `duplex: 'half'`. En el Node
+  // que este proyecto fija —24, en `.nvmrc` y en el Dockerfile— ESO NO
+  // FUNCIONA: `fetch` rechaza con «expected non-null body source» antes de
+  // salir a la red, con o sin `cache`, con o sin `redirect`. Y como el rechazo
+  // cae en el `catch` de aqui, el navegador recibia un 502 «no hay conexion con
+  // el servidor» con la API perfectamente viva y contestando a los GET.
+  //
+  // Es decir: TODO lo que escribe —entrar, tomar una comanda, cobrar— fallaba
+  // desde el navegador, culpando a la red del local. Se encontro levantando el
+  // web contra la API de verdad; ni el build ni los tipos lo ven.
+  //
+  // Leerlo entero cuesta memoria proporcional al cuerpo, y aqui los cuerpos son
+  // JSON de una comanda. El dia que haya subida de ficheros hay que volver a
+  // esto: la respuesta SI sigue en streaming —el SSE de `/api/events` depende
+  // de ello— y lo que habria que resolver es solo la ida.
+  const cuerpo = conCuerpo ? await request.arrayBuffer() : undefined;
+
   let respuesta: Response;
   try {
     respuesta = await fetch(objetivo, {
       method: request.method,
       headers: cabeceras,
-      body: conCuerpo ? request.body : undefined,
-      // Necesario para mandar un cuerpo en streaming con fetch.
-      ...(conCuerpo ? { duplex: 'half' } : {}),
+      body: cuerpo,
       redirect: 'manual',
       cache: 'no-store',
-    } as RequestInit);
+    });
   } catch {
     // La API no contesta. Se responde con el mismo sobre de error que usa ella,
     // para que el cliente no tenga que distinguir quien fallo.

@@ -74,16 +74,12 @@ async function decidir(peticion: NextRequest, cabeceras: Headers): Promise<NextR
 /**
  * Por donde pasa este middleware.
  *
- * Se excluye `_next` ENTERO, no solo `_next/static` y `_next/image`. Ahi dentro
- * vive tambien `_next/hmr`, que es un WEBSOCKET: en cuanto este middleware toca
- * esa respuesta —aunque solo sea para anadirle una cabecera— el «upgrade» deja
- * de ser un 101 valido y el navegador dice `ERR_INVALID_HTTP_RESPONSE`. El
- * sintoma es que la recarga en caliente se cae, reintenta, y acaba recargando
- * la pagina entera cada pocos segundos. No sale en el build ni en produccion:
- * solo mientras se trabaja, que es donde mas molesta.
- *
- * Lo que queda dentro son documentos, y son los unicos que necesitan CSP: un
- * .js o un .woff2 no ejecutan politica ninguna.
+ * Se excluye `_next` ENTERO y no solo `_next/static` y `_next/image`, ahora que
+ * lo que pasa por aqui reescribe cabeceras. Lo que queda dentro son DOCUMENTOS,
+ * que son los unicos que necesitan CSP: un `.js`, un `.woff2` o una imagen no
+ * ejecutan politica ninguna. Y bajo `_next` vive ademas `_next/hmr`, que es un
+ * WebSocket del servidor de desarrollo: un «upgrade» no es sitio donde andar
+ * anadiendo cabeceras de respuesta.
  */
 export const config = {
   matcher: ['/((?!_next|favicon.ico|icons/|api|ws).*)'],

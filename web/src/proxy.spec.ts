@@ -36,11 +36,10 @@ describe('por donde pasa el middleware', () => {
   const atraviesa = (ruta: string) => new RegExp(`^${config.matcher[0]}$`).test(ruta);
 
   it('las interioridades de Next se quedan fuera', () => {
-    // `_next/hmr` es un WEBSOCKET. Si el middleware toca esa respuesta —aunque
-    // sea para anadir una cabecera— el «upgrade» deja de ser un 101 valido, y
-    // el sintoma es que la recarga en caliente se cae y la pagina se recarga
-    // sola cada pocos segundos. Se encontro en la consola del navegador, no en
-    // el build. Excluir solo `_next/static` NO basta.
+    // Excluir solo `_next/static` y `_next/image` deja dentro `_next/hmr`, que
+    // es el WebSocket del servidor de desarrollo. Ahora que el middleware
+    // reescribe cabeceras, un «upgrade» no es sitio por donde hacerlo pasar —y
+    // ninguno de estos es un documento, asi que la CSP no les hace nada.
     expect(atraviesa('/_next/hmr')).toBe(false);
     expect(atraviesa('/_next/static/chunks/main.js')).toBe(false);
     expect(atraviesa('/_next/image')).toBe(false);

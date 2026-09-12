@@ -17,6 +17,12 @@
  * difunde sin bufer y lo emitido durante el corte se perdio; pero refrescar en
  * la primera conexion seria una peticion tirada encima del render que acaba de
  * llegar.
+ *
+ * Y lo segundo: DECIR que se esta sin canal. `EventSource` reintenta solo y en
+ * silencio, asi que una pantalla que perdio el SSE no se rompe — se congela. Un
+ * tablero de cocina congelado ensena el mundo de hace diez minutos y se lee
+ * como «no hay trabajo», que es la lectura contraria a la verdadera. Por eso el
+ * estado de la conexion es algo que el canal PUBLICA, no algo que se deduce.
  */
 
 export interface Aviso {
@@ -32,7 +38,9 @@ export class CanalDeAvisos {
   private fuente: EventSource | null = null;
   private escuchas = new Set<Escucha>();
   private alReconectar = new Set<() => void>();
+  private observadores = new Set<(conectado: boolean) => void>();
   private yaConecto = false;
+  private conectado = false;
 
   conectar(): void {
     if (this.fuente) return;
@@ -46,6 +54,14 @@ export class CanalDeAvisos {
         for (const accion of this.alReconectar) accion();
       }
       this.yaConecto = true;
+      this.marcar(true);
+    };
+
+    // `onerror` salta tanto cuando la conexion se cae como cuando un intento de
+    // reconexion falla. No se distingue a proposito: para quien mira la
+    // pantalla, las dos cosas son lo mismo — ahora mismo no llegan avisos.
+    fuente.onerror = () => {
+      this.marcar(false);
     };
 
     fuente.onmessage = (evento) => {
@@ -62,6 +78,10 @@ export class CanalDeAvisos {
   cerrar(): void {
     this.fuente?.close();
     this.fuente = null;
+    // Cerrado a proposito NO es lo mismo que caido: no se avisa a nadie. Quien
+    // cierra es la propia pantalla al desmontarse, y ya no hay nada que
+    // advertir.
+    this.conectado = false;
   }
 
   escuchar(escucha: Escucha): () => void {
@@ -72,5 +92,24 @@ export class CanalDeAvisos {
   cuandoReconecte(accion: () => void): () => void {
     this.alReconectar.add(accion);
     return () => this.alReconectar.delete(accion);
+  }
+
+  /**
+   * Avisa de si hay canal o no, y avisa YA del estado actual al suscribirse.
+   *
+   * Lo de avisar al suscribirse no es comodidad: `conectar()` puede haber
+   * pasado antes de que la pantalla se suscriba, y sin el estado inicial la
+   * pantalla se quedaria esperando un cambio que ya ocurrio.
+   */
+  observarConexion(observador: (conectado: boolean) => void): () => void {
+    this.observadores.add(observador);
+    observador(this.conectado);
+    return () => this.observadores.delete(observador);
+  }
+
+  private marcar(conectado: boolean): void {
+    if (this.conectado === conectado) return;
+    this.conectado = conectado;
+    for (const observador of this.observadores) observador(conectado);
   }
 }

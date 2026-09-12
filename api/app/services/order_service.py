@@ -24,6 +24,8 @@ from app.models import (
     Product,
     RestaurantTable,
 )
+from app.realtime.events import sobre
+from app.realtime.hub import hub
 from app.services import catalog_service
 from app.services.numbering import siguiente_numero
 
@@ -134,6 +136,13 @@ def crear(
         raise
 
     session.refresh(orden)
+
+    # DESPUES del commit, nunca dentro de la transaccion: si abortara, la cocina
+    # ya habria visto una comanda que no existe.
+    _avisar(orden, "order.created")
+    if mesa is not None:
+        _avisar_mesa(mesa)
+
     return orden, True
 
 
@@ -162,6 +171,7 @@ def anadir_linea(
     session.add(orden)
     session.commit()
     session.refresh(linea)
+    _avisar(orden, "order.changed")
     return linea
 
 
@@ -214,7 +224,49 @@ def cambiar_estado(
 
     session.commit()
     session.refresh(orden)
+
+    _avisar(orden, "order.changed")
+    if nuevo == "cancelled" and orden.table_id is not None:
+        mesa = session.get(RestaurantTable, orden.table_id)
+        if mesa is not None:
+            _avisar_mesa(mesa)
+
     return orden
+
+
+# --- avisos -----------------------------------------------------------------
+
+
+def _avisar(orden: Order, tipo: str) -> None:
+    """
+    El evento lleva lo justo para que el cliente sepa QUE mirar.
+
+    No lleva la comanda entera a proposito: es una senal, no un canal de datos.
+    Asi un evento perdido por una reconexion no pierde nada — el estado sigue en
+    la base y el cliente vuelve a pedirlo.
+    """
+    hub.publicar_desde_hilo(
+        sobre(
+            tipo,  # type: ignore[arg-type]
+            orden.branch_id,
+            orderId=str(orden.id),
+            orderNumber=orden.order_number,
+            status=orden.status,
+            tableId=str(orden.table_id) if orden.table_id else None,
+        )
+    )
+
+
+def _avisar_mesa(mesa: RestaurantTable) -> None:
+    hub.publicar_desde_hilo(
+        sobre(
+            "table.changed",
+            mesa.branch_id,
+            tableId=str(mesa.id),
+            number=mesa.number,
+            status=mesa.status,
+        )
+    )
 
 
 # --- ayudas -----------------------------------------------------------------

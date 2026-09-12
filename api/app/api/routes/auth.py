@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Request, Response, status
 
 from app.core.deps import SesionActual, SessionDep
-from app.core.security import COOKIE_ACCESO, COOKIE_REFRESCO, opciones_de_cookie
+from app.core.security import (
+    COOKIE_ACCESO,
+    COOKIE_REFRESCO,
+    firmar_ticket,
+    opciones_de_cookie,
+)
 from app.models import LoginPorCorreo, LoginPorPin, UserPublic
 from app.services import auth_service
 
@@ -66,4 +71,28 @@ def me(sesion: SesionActual) -> dict:
         "login_method": sesion.login_method,
         "role_name": sesion.role_name,
         "permissions": sesion.permissions,
+    }
+
+
+@router.post("/ws-ticket", summary="Un pase para abrir el canal de avisos")
+def ticket_de_websocket(sesion: SesionActual) -> dict:
+    """
+    Se pide con la cookie —peticion normal— y se usa en la URL del socket.
+
+    El `WebSocket` del navegador no admite cabeceras, asi que no hay forma de
+    mandar un token por ahi; y la cookie es `samesite=strict`, que en desarrollo
+    —web en :3000, API en :8000— no viaja. Con el ticket, el mismo camino
+    funciona en desarrollo y en produccion, y ademas el socket se puede probar
+    sin montar un navegador.
+
+    Dura treinta segundos: lo justo para abrirlo.
+    """
+    return {
+        "ticket": firmar_ticket(
+            {
+                "sub": str(sesion.sub),
+                "branch_id": str(sesion.branch_id),
+                "permissions": sesion.permissions,
+            }
+        )
     }

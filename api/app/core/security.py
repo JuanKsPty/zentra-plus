@@ -136,3 +136,45 @@ def opciones_de_cookie() -> dict[str, Any]:
         "samesite": "strict",
         "path": "/",
     }
+
+
+# --- tickets de WebSocket ---------------------------------------------------
+
+TICKET_SEGUNDOS = 30
+
+
+def firmar_ticket(datos: dict[str, Any]) -> str:
+    """
+    Un pase de un solo viaje para abrir el WebSocket.
+
+    POR QUE NO LA COOKIE. El `WebSocket` del navegador NO ADMITE CABECERAS, asi
+    que la unica via seria la cookie del handshake — y la cookie es
+    `samesite=strict`, que en desarrollo (web en :3000, API en :8000) no viaja.
+    Habria un camino de autenticacion en desarrollo y otro en produccion, que es
+    exactamente lo que no se quiere.
+
+    Dura treinta segundos: lo justo para pedirlo y abrir el socket. Va en la URL,
+    asi que puede acabar en un log de acceso; que caduque enseguida es lo que
+    hace que eso no importe.
+    """
+    emitido = _ahora()
+    return jwt.encode(
+        {
+            **datos,
+            "typ": "ws_ticket",
+            "iat": emitido,
+            "exp": emitido + timedelta(seconds=TICKET_SEGUNDOS),
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def leer_ticket(token: str) -> dict[str, Any]:
+    carga = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    if carga.get("typ") != "ws_ticket":
+        # Un token de acceso NO vale como ticket. Sin esta comprobacion, el
+        # token de sesion —que dura horas— serviria para abrir sockets, y
+        # entonces el ticket no habria servido para nada.
+        raise jwt.InvalidTokenError("El token no es un ticket de WebSocket")
+    return carga

@@ -74,6 +74,7 @@ from app.models.order import (
     OrderItemPublic,
     OrderPublic,
     OrderStatusHistory,
+    VentaDeMostrador,
 )
 from app.models.role import (
     Permission,
@@ -172,5 +173,6 @@ __all__ = [
     "UserBranch",
     "UserOperativo",
     "UserPublic",
+    "VentaDeMostrador",
     "ahora_utc",
 ]

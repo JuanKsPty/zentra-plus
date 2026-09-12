@@ -129,6 +129,22 @@ class CambioDeEstado(Entrada, ConHoraDelHecho):
     status: str = Field(max_length=20)
 
 
+class VentaDeMostrador(Entrada, ConIdDelCliente, ConHoraDelHecho):
+    """
+    Crear, cobrar y cerrar en un solo acto.
+
+    Trae la clave de reenvio del cobro porque la operacion entera es una: si el
+    cliente reintenta, ni la comanda ni el cobro se duplican.
+    """
+
+    method: str = Field(max_length=20)
+    label: str | None = Field(default=None, max_length=80)
+    client_request_id: str | None = Field(default=None, max_length=64)
+    # Al menos una linea. Una venta vacia no es una venta, y dejarla pasar hace
+    # que el fallo aparezca al cobrar cero — con la comanda YA creada.
+    items: list[LineaNueva] = Field(min_length=1)
+
+
 # --- salida -----------------------------------------------------------------
 
 

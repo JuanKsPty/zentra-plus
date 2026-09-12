@@ -15,8 +15,9 @@ from app.models import (
     PaymentPublic,
     PropinaNueva,
     ShiftPublic,
+    VentaDeMostrador,
 )
-from app.services import cash_service, order_service
+from app.services import cash_service, counter_sale_service, order_service
 
 router = APIRouter(tags=["caja"])
 
@@ -160,6 +161,29 @@ def _arqueo_publico(turno, resultado) -> ArqueoPublic:
         difference=resultado.diferencia,
         payments_count=resultado.cuantos_cobros,
     )
+
+
+@router.post(
+    "/counter-sales",
+    status_code=201,
+    dependencies=[Depends(requiere(P.ORDERS_WRITE, P.CASH_WRITE))],
+    summary="Venta de mostrador",
+)
+def venta_de_mostrador(
+    datos: VentaDeMostrador,
+    session: SessionDep,
+    alcance: SucursalActiva,
+    sesion: SesionActual,
+) -> EstadoDeCobro:
+    """
+    Crear, cobrar y cerrar en UNA peticion.
+
+    Exige los DOS permisos: quien vende en mostrador esta tomando una comanda y
+    cobrandola a la vez. Con uno solo se podria hacer media operacion, que es
+    justo la que no existe.
+    """
+    orden = counter_sale_service.vender(session, datos, alcance, sesion.sub)
+    return estado(orden.id, session, alcance)
 
 
 @router.get(

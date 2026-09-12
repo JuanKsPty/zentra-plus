@@ -19,6 +19,7 @@ export default async function LayoutDeOperacion({ children }: { children: React.
 
   const puedeSalon = sesion.permissions.includes('orders:write');
   const puedeCocina = sesion.permissions.includes('orders:bump');
+  const puedeCaja = sesion.permissions.includes('cash:read');
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -28,6 +29,7 @@ export default async function LayoutDeOperacion({ children }: { children: React.
         <nav className="ml-2 flex gap-1">
           {puedeSalon && <Salto href="/salon" texto="Salon" />}
           {puedeCocina && <Salto href="/cocina" texto="Cocina" />}
+          {puedeCaja && <Salto href="/caja" texto="Caja" />}
         </nav>
 
         <div className="flex-1" />
@@ -39,7 +41,7 @@ export default async function LayoutDeOperacion({ children }: { children: React.
 
       {/* Si alguien llega aqui sin ninguna superficie operativa, se le manda a
           la suya en vez de dejarlo en una pantalla vacia. */}
-      {!puedeSalon && !puedeCocina && redirect(destinoPara(sesion.permissions))}
+      {!puedeSalon && !puedeCocina && !puedeCaja && redirect(destinoPara(sesion.permissions))}
     </div>
   );
 }

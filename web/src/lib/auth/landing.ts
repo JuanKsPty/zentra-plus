@@ -26,6 +26,7 @@ export interface Destino {
 export const DESTINOS: readonly Destino[] = [
   { permiso: 'settings:write', ruta: '/panel' },
   { permiso: 'orders:write', ruta: '/salon' },
+  { permiso: 'cash:write', ruta: '/caja' },
   { permiso: 'orders:bump', ruta: '/cocina' },
   { permiso: 'reports:read', ruta: '/panel' },
 ];
